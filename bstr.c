@@ -1,5 +1,4 @@
 #include "bstr.h"
-#include <assert.h>
 #include <ctype.h>
 
 
@@ -16,6 +15,7 @@ struct bstr_s bstr_create(const char *init) {
   return bstr_createlen(init, initlen);
 }
 
+
 struct bstr_s bstr_createlen(const char *init, size_t len) {
     struct bstr_s s = {};
     s.buf = s_malloc(len+1);
@@ -31,38 +31,186 @@ struct bstr_s bstr_createlen(const char *init, size_t len) {
     return s;
 }
 
-
-int bstricmp (const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
-  const char* c1 = b0.begin;
-  const char* c2 = b1.begin;
-  for(;c1 < b0.end && c2 < b1.end; c1++,c2++) {
-    const char v  = (char) downcase (*c1)
-	           - (char) downcase (*c2);
-    if (0 != v) 
-	    return v;
+/*  
+ *  Compare two strings without differentiating between case. The return
+ *  value is the difference of the values of the characters where the two
+ *  strings first differ after lower case transformation, otherwise 0 is
+ *  returned indicating that the strings are equal. If the lengths are
+ *  different, then a difference from 0 is given. 
+ */
+int bstrCaselessCompare(const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
+  if(b0.buf == b1.buf) {
+    goto same_str; // same string but length is different 
+  }
+  
+  size_t i0 = 0;
+  size_t i1 = 0;
+  for (; i0 < b0.len && i1 < b1.len; i0++, i1++) {
+    const int v = (int)downcase(b0.buf[i0]) - (int)downcase(b1.buf[i1]);
+    if (0 != v)
+      return v;
   }
 
-  for(;c1 < b0.end; c1++) {
-		const char v = (char) downcase (*c1);
-		if (v) 
-			return v;
-		return BSTR_CMP_EXTRA_NULL;
-  }
-
-  for(;c2 < b1.end; c2++) {
-		const char v = (char) downcase (*c2);
-		if (v) 
-			return v;
-		return BSTR_CMP_EXTRA_NULL;
-  }
-  return BSTR_OK;
+same_str:
+  if (b0.len > b1.len)
+    return 1;
+  if (b1.len > b0.len)
+    return -1;
+  return 0;
 }
-//int bstrnicmp (const struct bstr_slice_s b0, const struct bstr_slice_s b1, int n) {
-//
-//}
-//int bstrcmp (const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
-//
-//}
-//int bstrncmp (const struct bstr_slice_s b0, const struct bstr_slice_s b1, int n) {
-//
-//}
+
+int bstrCompare (const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
+  if(b0.buf == b1.buf) {
+    goto same_str; // same string but length is different 
+  }
+
+  size_t i0 = 0;
+  size_t i1 = 0;
+  for (; i0 < b0.len && i1 < b1.len; i0++, i1++) {
+    const int v = (int)b0.buf[i0] - (int)b1.buf[i1];
+    if (0 != v) {
+      return v;
+    }
+  }
+  
+same_str:
+  if (b0.len > b1.len)
+    return 1;
+  if (b1.len > b0.len)
+    return -1;
+  return 0;
+}
+
+int bstrCaselessEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
+  if(b0.len != b1.len) 
+    return 0;
+
+  size_t i0 = 0;
+  size_t i1 = 0;
+  for (; i0 < b0.len && i1 < b1.len; i0++, i1++) {
+    if((char)downcase(b0.buf[i0]) != (char)downcase(b1.buf[i1])) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+int bstrEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
+  if(b0.len != b1.len) 
+    return 0;
+  
+  size_t i0 = 0;
+  size_t i1 = 0;
+  for (; i0 < b0.len && i1 < b1.len; i0++, i1++) {
+    if(b0.buf[i0] != b1.buf[i1]) {
+      return 0;
+    }
+  }
+  return 1;
+
+}
+
+int bstrIndexOfCmp(const struct bstr_slice_s haystack, const struct bstr_slice_s needle, bstr_cmp_handle handle) {
+  if(needle.len > haystack.len || needle.len == 0)
+    return BSTR_ERR;
+
+  if(haystack.len < 52 && needle.len <= 4) {
+    for(size_t i = 0; i < (haystack.len - (needle.len - 1)); i++){
+      for(size_t j = 0; j < needle.len; j++) {
+        if(handle((struct bstr_slice_s){
+          .buf = haystack.buf + i,
+          .len = needle.len
+        }, needle)) {
+          return i;
+        }
+      }
+    }
+    return BSTR_ERR;
+  }
+
+  // Boyer–Moore–Horspool_algorithm
+  char skip_table[256] = {0};
+  for(size_t i = 0; i < 256; i++) {
+    skip_table[i] = needle.len;
+  }
+  for(size_t i = 0; i < needle.len - 1; i++) {
+    skip_table[needle.buf[i]] = needle.len - i - 1; 
+  }
+
+  size_t i = 0;
+  while(i <= haystack.len - needle.len) {
+    if (bstrEq((struct bstr_slice_s){
+      .buf = haystack.buf + i,
+      .len = needle.len
+    }, needle)) {
+        return i;
+    }
+    i += skip_table[haystack.buf[i + needle.len - 1]];
+  }
+  return BSTR_ERR;
+
+}
+int bstrLastIndexOfCmp(const struct bstr_slice_s haystack, const struct bstr_slice_s needle, bstr_cmp_handle handle) {
+  if(needle.len > haystack.len || needle.len == 0)
+    return BSTR_ERR;
+
+  if(haystack.len < 52 && needle.len <= 4) {
+    for(size_t i = (haystack.len - needle.len) - 1;; i--){
+      for(size_t j = 0; j < needle.len; j++) {
+        if(handle((struct bstr_slice_s){
+          .buf = haystack.buf + i,
+          .len = needle.len
+        }, needle)) {
+          return i;
+        }
+      }
+      if(i == 0) break;
+    }
+    return BSTR_ERR;
+  }
+
+  // Boyer–Moore–Horspool_algorithm
+  size_t table_len = 0;
+  char skip_table[256] = {0};
+  for(size_t i = 0; i < 256; i++) {
+    skip_table[i] = needle.len;
+  }
+  
+  for(size_t i = needle.len - 1;; i--){
+    skip_table[needle.buf[i]] = needle.len - i - 1; 
+    if(i == 0) break;
+  }
+
+  size_t i = haystack.len - needle.len;
+  while(1) {
+    if (handle((struct bstr_slice_s){
+      .buf = haystack.buf + i,
+      .len = needle.len
+    }, needle)) {
+        return i;
+    }
+    const size_t skip = skip_table[haystack.buf[i]];
+    if(skip > i) break;
+    i -= skip;
+  }
+  return BSTR_ERR;
+  
+}
+int bstrLastIndexOf(const struct bstr_slice_s haystack,
+                    const struct bstr_slice_s needle) {
+  return bstrLastIndexOfCmp(haystack, needle, bstrEq);
+}
+
+int bstrIndexOf(const struct bstr_slice_s haystack,
+                const struct bstr_slice_s needle) {
+  return bstrIndexOfCmp(haystack, needle, bstrEq);
+}
+
+int bstrIndexOfCaseless(const struct bstr_slice_s haystack,
+                        const struct bstr_slice_s needle) {
+  return bstrIndexOfCmp(haystack, needle, bstrCaselessEq);
+}
+int bstrLastIndexOfCaseless(const struct bstr_slice_s haystack,
+                            const struct bstr_slice_s needle) {
+  return bstrLastIndexOfCmp(haystack, needle, bstrCaselessEq);
+}

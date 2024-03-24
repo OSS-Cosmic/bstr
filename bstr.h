@@ -65,7 +65,7 @@ struct bstr_slice_s {
 }; 
 #define BSTR_TO_SLICE(a) (struct bstr_slice_s){(a)->buf, (a)->len}
 #define BSTR_C_SLICE(c) (struct bstr_slice_s){(const char*)(c), strlen(c)}
-
+inline int bstrSliceValid(const struct bstr_slice_s slice);
 inline struct bstr_slice_s bstrSliceSub(const struct bstr_slice_s, size_t begin, size_t end);
 
 struct bstr_s bstrEmpty();
@@ -79,16 +79,64 @@ int bstrInsertChar(struct bstr_s* str, size_t i, char b);
 int bstrInsertSlice(struct bstr_s* str, size_t i, const struct bstr_slice_s slice);
 int bstrAssign(struct bstr_s* str, const struct bstr_slice_s slice);
 
+struct bstr_split_iterable_s {
+  const struct bstr_slice_s buffer; // the buffer to iterrate over
+  const struct bstr_slice_s delim; // delim to split across 
+  size_t cursor; // the current position in the buffer
+};
+
+/** 
+ * splits a string using an iterator and returns a slice. a valid slice means there are 
+ * are more slices.
+ *
+ * The the slice does not have a null terminator.
+ *
+ * struct bstr_split_iterator_s iterable = {
+ *     .delim = BSTR_C_SLICE(" "),
+ *     .buffer = BSTR_C_SLICE("one two three four five"),
+ *     .cursor = 0
+ * };
+ * for(struct bstr_slice_s it = bstrSplitIterate(&iterable); 
+ *  bstrSliceValid(it); 
+ *  it = bstrSplitIterate(&iterable)) {
+ *   printf("Next substring: %.*s\n", slice.len, slice.buf); 
+ * }
+ *
+ **/
+struct bstr_slice_s bstrSplitItr(struct bstr_split_iterable_s*);
+/** 
+ * splits a string using an iterator and returns a slice. a valid slice means there are 
+ * are more slices.
+ *
+ * For the reverse case move the cursor to the end of the string
+ *
+ * The the slice does not have a null terminator.
+ *
+ * struct bstr_split_iterator_s iterable = {
+ *     .delim = BSTR_C_SLICE(" "),
+ *     .buffer = BSTR_C_SLICE("one two three four five"),
+ *     .cursor = 0
+ * };
+ * for(struct bstr_slice_s it = bstrSplitIterate(&iterable); 
+ *  bstrSliceValid(it); 
+ *  it = bstrSplitIterate(&iterable)) {
+ *   printf("Next substring: %.*s\n", slice.len, slice.buf); 
+ * }
+ *
+ **/
+
+struct bstr_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s*);
+
 /* Set the bstr string length to the length as obtained with strlen(), so
  * considering as content only up to the first null term character.
  *
  * This function is useful when the sds string is hacked manually in some
  * way, like in the following example:
  *
- * s = sdsnew("foobar");
+ * s = bstrEmpty();
  * s[2] = '\0';
  * bstrUpdateLen(s);
- * printf("%d\n", sdslen(s));
+ * printf("%d\n", s.len);
  *
  * The output will be "2", but if we comment out the call to sdsupdatelen()
  * the output will be "6" as the string was modified but the logical length
@@ -114,11 +162,15 @@ int bstrCompare  (const struct bstr_slice_s b0, const struct bstr_slice_s b1);
 int bstrCaselessEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1);
 int bstrEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1);
 
+int bstrIndexOfOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle);
 int bstrIndexOf(const struct bstr_slice_s haystack, const struct bstr_slice_s needle);
+int bstrLastIndexOfOffset(const struct bstr_slice_s str, size_t offset, const struct bstr_slice_s needle);
 int bstrLastIndexOf(const struct bstr_slice_s str, const struct bstr_slice_s needle);
 
+int bstrIndexOfCaselessOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle);
 int bstrIndexOfCaseless(const struct bstr_slice_s haystack, const struct bstr_slice_s needle);
-int bstrLastIndexOfCaseless(const struct bstr_slice_s str, const struct bstr_slice_s needle);
+int bstrLastIndexOfCaseless(const struct bstr_slice_s haystack, const struct bstr_slice_s needle);
+int bstrLastIndexOfCaselessOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle);
 
 int bstrIndexOfAny(const struct bstr_slice_s haystack, const struct bstr_slice_s characters);
 int bstrLastIndexOfAny(const struct bstr_slice_s haystack, const struct bstr_slice_s characters);
@@ -130,7 +182,11 @@ struct bstr_slice_s bstrSliceSub(const struct bstr_slice_s s0, size_t begin, siz
     .len = end - begin
   };
   // the new slice has to be inbetween the incoming slice.
-  assert(begin + end <= s0.len); 
+  assert(end <= s0.len); 
+  assert(begin <= s0.len); 
   return res;
+}
+int bstrSliceValid(const struct bstr_slice_s slice) {
+  return slice.len > 0 && slice.buf != NULL;
 }
 #endif

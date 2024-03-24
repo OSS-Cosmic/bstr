@@ -29,6 +29,7 @@ UTEST(bstr, bstrIndexOf) {
 }
 
 UTEST(bstr, bstrLastIndexOf) {
+  EXPECT_EQ(bstrLastIndexOf(BSTR_C_SLICE("foo foo"), BSTR_C_SLICE(" ")), 3);
   EXPECT_EQ(bstrLastIndexOf(BSTR_C_SLICE("foo foo"), BSTR_C_SLICE("foo")), 4);
   EXPECT_EQ(bstrLastIndexOf(BSTR_C_SLICE("banana"), BSTR_C_SLICE("ana")), 3);
   EXPECT_EQ(bstrLastIndexOf(BSTR_C_SLICE("textbook"), BSTR_C_SLICE("book")), 4);
@@ -48,6 +49,61 @@ UTEST(bstr, bstrEq) {
   EXPECT_EQ(bstrEq(BSTR_C_SLICE("Helloworld"), BSTR_C_SLICE("Hello world")), 0);
   EXPECT_EQ(bstrEq(BSTR_C_SLICE("Hello World"), BSTR_C_SLICE("Hello world")), 0);
   EXPECT_EQ(bstrEq(BSTR_C_SLICE("Hello"), BSTR_C_SLICE("Hello ")), 0);
+}
+
+
+UTEST(bstr, bstrIterateRev) {
+  struct bstr_slice_s buf = BSTR_C_SLICE("one two three four five");
+  struct bstr_split_iterable_s iterable = {
+      .delim = BSTR_C_SLICE(" "),
+      .buffer = buf,
+      .cursor = buf.len 
+  };
+  struct bstr_slice_s s = {};
+  s = bstrSplitIterReverse(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(bstrEq(BSTR_C_SLICE("five"), s), 1);
+  s = bstrSplitIterReverse(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(bstrEq(BSTR_C_SLICE("four"), s), 1);
+  s = bstrSplitIterReverse(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(bstrEq(BSTR_C_SLICE("three"), s), 1);
+  s = bstrSplitIterReverse(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(bstrEq(BSTR_C_SLICE("two"), s), 1);
+  s = bstrSplitIterReverse(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(bstrEq(BSTR_C_SLICE("one"), s), 1);
+  s = bstrSplitIterReverse(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 0);
+
+}
+
+UTEST(bstr, bstrIterate) {
+  struct bstr_split_iterable_s iterable = {
+      .delim = BSTR_C_SLICE(" "),
+      .buffer = BSTR_C_SLICE("one two three four five"),
+      .cursor = 0
+  };
+  struct bstr_slice_s s = {};
+  s = bstrSplitItr(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(bstrEq(BSTR_C_SLICE("one"), s), 1);
+  s = bstrSplitItr(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(bstrEq(BSTR_C_SLICE("two"), s), 1);
+  s = bstrSplitItr(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(bstrEq(BSTR_C_SLICE("three"), s), 1);
+  s = bstrSplitItr(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(bstrEq(BSTR_C_SLICE("four"), s), 1);
+  s = bstrSplitItr(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(bstrEq(BSTR_C_SLICE("five"), s), 1);
+  s = bstrSplitItr(&iterable);
+  EXPECT_EQ(bstrSliceValid(s), 0);
 }
 
 UTEST(bstr, bstrCaselessEq) {

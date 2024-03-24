@@ -187,6 +187,43 @@ int bstrMakeRoomFor(struct bstr_s* str, size_t addlen) {
   return BSTR_OK;
 }
 
+struct bstr_slice_s bstrSplitItr(struct bstr_split_iterable_s* iterable) {
+  assert(bstrSliceValid(iterable->buffer));
+  assert(bstrSliceValid(iterable->delim));
+  if(iterable->cursor == iterable->buffer.len) 
+    return (struct bstr_slice_s){0};
+
+  const char* begin = iterable->buffer.buf + iterable->cursor;
+  const int offset = bstrIndexOfOffset(BSTR_TO_SLICE(&(iterable->buffer)), iterable->cursor, iterable->delim);
+  if(offset == -1) {
+    struct bstr_slice_s res =  bstrSliceSub(iterable->buffer, iterable->cursor, iterable->buffer.len);
+    iterable->cursor = iterable->buffer.len; // move the cursor to the very end of the buffer
+    return res;
+  }
+  struct bstr_slice_s res =  bstrSliceSub(iterable->buffer, iterable->cursor, offset);
+  iterable->cursor = offset + iterable->delim.len; 
+  return res;
+}
+
+struct bstr_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s* iterable) {
+  assert(bstrSliceValid(iterable->buffer));
+  assert(bstrSliceValid(iterable->delim));
+  if(iterable->cursor == 0) 
+    return (struct bstr_slice_s){0};
+  
+  const char* begin = iterable->buffer.buf + iterable->cursor;
+  const int offset = bstrLastIndexOfOffset(BSTR_TO_SLICE(&(iterable->buffer)), iterable->cursor - 1, iterable->delim);
+  if(offset == -1) {
+    struct bstr_slice_s res =  bstrSliceSub(iterable->buffer, 0, iterable->cursor);
+    iterable->cursor = 0; // move the cursor to the very beginning of the buffer
+    return res;
+  }
+  struct bstr_slice_s res =  bstrSliceSub(iterable->buffer, offset + iterable->delim.len, iterable->cursor);
+  iterable->cursor = offset; 
+  return res;
+}
+
+
 /*  
  *  Compare two strings without differentiating between case. The return
  *  value is the difference of the values of the characters where the two
@@ -252,6 +289,7 @@ int bstrCaselessEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1) 
 }
 
 int bstrEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
+  //printf("EQ: \"%.*s\" -- \"%.*s\"\n", (int)b0.len, b0.buf, (int)b1.len, b1.buf);
   if(b0.len != b1.len) 
     return 0;
   size_t i0 = 0;
@@ -264,12 +302,12 @@ int bstrEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
   return 1;
 }
 
-static inline int bstrIndexOfCmp(const struct bstr_slice_s haystack, const struct bstr_slice_s needle, bstr_cmp_handle handle) {
+static inline int bstrIndexOfCmp(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle, bstr_cmp_handle handle) {
   if(needle.len > haystack.len || needle.len == 0)
     return BSTR_ERR;
 
   if(haystack.len < 52 && needle.len <= 4) {
-    for(size_t i = 0; i < (haystack.len - (needle.len - 1)); i++){
+    for(size_t i = offset; i < (haystack.len - (needle.len - 1)); i++){
       for(size_t j = 0; j < needle.len; j++) {
         if(handle((struct bstr_slice_s){
           .buf = haystack.buf + i,
@@ -291,7 +329,7 @@ static inline int bstrIndexOfCmp(const struct bstr_slice_s haystack, const struc
     skip_table[needle.buf[i]] = needle.len - i - 1; 
   }
 
-  size_t i = 0;
+  size_t i = offset;
   while(i <= haystack.len - needle.len) {
     if (bstrEq((struct bstr_slice_s){
       .buf = haystack.buf + i,
@@ -304,12 +342,16 @@ static inline int bstrIndexOfCmp(const struct bstr_slice_s haystack, const struc
   return BSTR_ERR;
 
 }
-static inline int bstrLastIndexOfCmp(const struct bstr_slice_s haystack, const struct bstr_slice_s needle, bstr_cmp_handle handle) {
+
+static inline int bstrLastIndexOfCmp(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle, bstr_cmp_handle handle) {
   if(needle.len > haystack.len || needle.len == 0)
     return BSTR_ERR;
 
+  assert(offset <= haystack.len);
+  const size_t startIndex = (offset <= (haystack.len - needle.len)) ? offset : (haystack.len - needle.len); 
+  
   if(haystack.len < 52 && needle.len <= 4) {
-    for(size_t i = (haystack.len - needle.len);; i--){
+    for(size_t i = startIndex;; i--){
       for(size_t j = 0; j < needle.len; j++) {
         if(handle((struct bstr_slice_s){
           .buf = haystack.buf + i,
@@ -335,7 +377,7 @@ static inline int bstrLastIndexOfCmp(const struct bstr_slice_s haystack, const s
     if(i == 1) break;
   }
 
-  size_t i = haystack.len - needle.len;
+  size_t i = startIndex; 
   while(1) {
     if (handle((struct bstr_slice_s){
       .buf = haystack.buf + i,
@@ -351,23 +393,41 @@ static inline int bstrLastIndexOfCmp(const struct bstr_slice_s haystack, const s
   
 }
 
-int bstrLastIndexOf(const struct bstr_slice_s haystack,
-                    const struct bstr_slice_s needle) {
-  return bstrLastIndexOfCmp(haystack, needle, bstrEq);
+int bstrIndexOfOffset(const struct bstr_slice_s haystack, size_t offset,
+                      const struct bstr_slice_s needle) {
+  return bstrIndexOfCmp(haystack, offset, needle, bstrEq);
 }
 
 int bstrIndexOf(const struct bstr_slice_s haystack,
                 const struct bstr_slice_s needle) {
-  return bstrIndexOfCmp(haystack, needle, bstrEq);
+  return bstrIndexOfCmp(haystack, 0, needle, bstrEq);
 }
 
 int bstrIndexOfCaseless(const struct bstr_slice_s haystack,
                         const struct bstr_slice_s needle) {
-  return bstrIndexOfCmp(haystack, needle, bstrCaselessEq);
+  return bstrIndexOfCmp(haystack, 0, needle, bstrCaselessEq);
 }
+
+int bstrIndexOfCaselessOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle) {
+  return bstrIndexOfCmp(haystack, offset, needle, bstrCaselessEq);
+}
+
+int bstrLastIndexOf(const struct bstr_slice_s haystack,
+                    const struct bstr_slice_s needle) {
+  return bstrLastIndexOfCmp(haystack, haystack.len, needle, bstrEq);
+}
+
+int bstrLastIndexOfOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle) {
+  return bstrLastIndexOfCmp(haystack, offset, needle, bstrEq);
+}
+
 int bstrLastIndexOfCaseless(const struct bstr_slice_s haystack,
                             const struct bstr_slice_s needle) {
-  return bstrLastIndexOfCmp(haystack, needle, bstrCaselessEq);
+  return bstrLastIndexOfCmp(haystack, haystack.len, needle, bstrCaselessEq);
+}
+
+int bstrLastIndexOfCaselessOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle) {
+  return bstrLastIndexOfCmp(haystack, offset, needle, bstrCaselessEq);
 }
 
 int bstrIndexOfAny(const struct bstr_slice_s haystack, const struct bstr_slice_s characters) {

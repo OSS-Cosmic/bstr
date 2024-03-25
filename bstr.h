@@ -47,9 +47,6 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdbool.h>
-#define BSTR_ERR (-1)
-#define BSTR_OK (0)
-#define BSTR_BS_BUFF_LENGTH_GET (0)
 
 #define BSTR_LLSTR_SIZE 21
 #define BSTR_LSTR_SIZE 16 
@@ -94,10 +91,10 @@ struct bstr_const_slice_s bstrTrim(struct bstr_const_slice_s slice);
 struct bstr_const_slice_s bstrRightTrim(struct bstr_const_slice_s slice);
 struct bstr_const_slice_s bstrLeftTrim(struct bstr_const_slice_s slice);
 
-int bstrAppendSlice(struct bstr_s* str, const struct bstr_const_slice_s slice);
-int bstrAppendChar(struct bstr_s* str, char b);
-int bstrInsertChar(struct bstr_s* str, size_t i, char b);
-int bstrInsertSlice(struct bstr_s* str, size_t i, const struct bstr_const_slice_s slice);
+bool bstrAppendSlice(struct bstr_s* str, const struct bstr_const_slice_s slice);
+bool bstrAppendChar(struct bstr_s* str, char b);
+bool bstrInsertChar(struct bstr_s* str, size_t i, char b);
+bool bstrInsertSlice(struct bstr_s* str, size_t i, const struct bstr_const_slice_s slice);
 bool bstrAssign(struct bstr_s* str, const struct bstr_const_slice_s slice);
 
 struct bstr_split_iterable_s {
@@ -162,7 +159,7 @@ struct bstr_const_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s*);
  * The output will be "2", but if we comment out the call to sdsupdatelen()
  * the output will be "6" as the string was modified but the logical length
  * remains 6 bytes. */
-int bstrUpdateLen(struct bstr_s* str);
+bool bstrUpdateLen(struct bstr_s* str);
 
 /* Enlarge the free space at the end of the bstr string so that the caller
  * is sure that after calling this function can overwrite up to addlen
@@ -199,8 +196,8 @@ bool bstrClear(struct bstr_s* str);
  *
  * if valid BSTR_OK else BSTR_ERR
  */
-int bstrcatprintf(struct bstr_s* s, const char *fmt, ...); 
-int bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap);
+bool bstrcatprintf(struct bstr_s* s, const char *fmt, ...); 
+bool bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap);
 
 /* This function is similar to bstrcatprintf, but much faster as it does
  * not rely on sprintf() family functions implemented by the libc that

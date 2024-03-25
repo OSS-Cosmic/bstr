@@ -74,7 +74,7 @@ struct bstr_const_slice_s bstrLeftTrim(struct bstr_const_slice_s slice) {
 
 bool bstrAssign(struct bstr_s* str, const struct bstr_const_slice_s slice) {
     // set the length of the string alloc will 
-    if(!bstrSetLen(str, slice.len + 1))
+    if(!bstrSetLen(str, slice.len))
         return false;
     // slices can potentially overlap to the dest string 
     //    trimming and assigning
@@ -83,7 +83,7 @@ bool bstrAssign(struct bstr_s* str, const struct bstr_const_slice_s slice) {
 }
 
 bool bstrSetLen(struct bstr_s* str, size_t len) {
-  if(len > str->alloc) {
+  if(len + 1 > str->alloc) {
     assert(len > str->len);
     size_t reqSize = len + 1;
     if(reqSize < BSTR_MAX_PREALLOC) {
@@ -101,11 +101,11 @@ bool bstrSetLen(struct bstr_s* str, size_t len) {
   return true;
 }
 
-int bstrUpdateLen(struct bstr_s* str) {
+bool bstrUpdateLen(struct bstr_s* str) {
   size_t len = strlen(str->buf);
   str->len = len;
-  assert(str->len <= str->alloc); // the buffer has overrun
-  return BSTR_OK; 
+  assert(str->len < str->alloc); // the buffer has overrun
+  return true; 
 }
 
 bool bstrClear(struct bstr_s* str) {
@@ -137,15 +137,15 @@ void bstrFree(struct bstr_s* str) {
   str->buf = NULL;
 }
 
-int bstrAppendSlice(struct bstr_s* str, const struct bstr_const_slice_s slice) {
+bool bstrAppendSlice(struct bstr_s* str, const struct bstr_const_slice_s slice) {
   if(!bstrMakeRoomFor(str, slice.len + 1))
-    return BSTR_ERR;
+    return false;
   for(size_t i = 0; i < slice.len; i++) {
     str->buf[str->len + i] = slice.buf[i];
   }
   str->len += slice.len;
   str->buf[str->len] = '\0';
-  return BSTR_OK;
+  return true;
 }
 
 int bstrfmtll(struct bstr_slice_s slice, long long value) { 
@@ -405,7 +405,7 @@ bool bstrReadll(struct bstr_const_slice_s slice, int base, long long*result) {
   return true;
 }
 
-int bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap) {
+bool bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap) {
   va_list cpy;
   char staticbuf[1024], *buf = staticbuf, *t;
   size_t buflen = strlen(fmt) * 2;
@@ -416,7 +416,7 @@ int bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap) {
   if (buflen > sizeof(staticbuf)) {
     buf = s_malloc(buflen);
     if (buf == NULL)
-      return BSTR_ERR;
+      return false;
   } else {
     buflen = sizeof(staticbuf);
   }
@@ -430,7 +430,7 @@ int bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap) {
     if (bufstrlen < 0) {
       if (buf != staticbuf)
         s_free(buf);
-      return BSTR_ERR;
+      return false;
     }
     if (((size_t)bufstrlen) >= buflen) {
       if (buf != staticbuf)
@@ -438,7 +438,7 @@ int bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap) {
       buflen = ((size_t)bufstrlen) + 1;
       buf = s_malloc(buflen);
       if (buf == NULL)
-        return BSTR_ERR;
+        return false;
       continue;
     }
     break;
@@ -448,41 +448,40 @@ int bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap) {
   bstrAppendSlice(str, (struct bstr_const_slice_s){.buf = buf, .len = bufstrlen});
   if (buf != staticbuf)
     s_free(buf);
-  return BSTR_OK;
+  return true;
 }
 
 struct bstr_s bstrEmpty() {
   return (struct bstr_s) {0};
 }
 
-int bstrcatprintf(struct bstr_s* s, const char *fmt, ...) {
-    int result = 0;
+bool bstrcatprintf(struct bstr_s* s, const char *fmt, ...) {
     va_list ap;
     char *t;
     va_start(ap, fmt);
-    result = bstrcatvprintf(s,fmt,ap);
+    const bool result = bstrcatvprintf(s,fmt,ap);
     va_end(ap);
     return result;
 }
 
-int bstrInsertSlice(struct bstr_s* str, size_t offset, const struct bstr_const_slice_s slice) {
+bool bstrInsertSlice(struct bstr_s* str, size_t offset, const struct bstr_const_slice_s slice) {
   assert(offset <= str->len);
-  if(bstrMakeRoomFor(str, slice.len + 1) != BSTR_OK)
-    return BSTR_ERR;
+  if(!bstrMakeRoomFor(str, slice.len + 1))
+    return false;
   memmove(str->buf + offset + slice.len, str->buf + offset, str->len - offset);
   for (size_t i = 0; i < slice.len; i++) {
     str->buf[offset + i] = slice.buf[i];
   }
   str->len += slice.len;
   str->buf[str->len] = '\0';
-  return BSTR_OK;
+  return true;
 }
 
-int bstrAppendChar(struct bstr_s* str, char b) {
+bool bstrAppendChar(struct bstr_s* str, char b) {
   return bstrAppendSlice(str, (struct bstr_const_slice_s){ .buf = &b, .len = 1});
 }
 
-int bstrInsertChar(struct bstr_s* str, size_t i, char b) {
+bool bstrInsertChar(struct bstr_s* str, size_t i, char b) {
   return bstrInsertSlice(str, i, (struct bstr_const_slice_s){ .buf = &b, .len = 1});
 }
 
@@ -614,7 +613,7 @@ bool bstrEq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s
 
 static inline int bstrIndexOfCmp(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle, bstr_cmp_handle handle) {
   if(needle.len > haystack.len || needle.len == 0)
-    return BSTR_ERR;
+    return -1;
 
   if(haystack.len < 52 && needle.len <= 4) {
     for(size_t i = offset; i < (haystack.len - (needle.len - 1)); i++){
@@ -627,7 +626,7 @@ static inline int bstrIndexOfCmp(const struct bstr_const_slice_s haystack, size_
         }
       }
     }
-    return BSTR_ERR;
+    return -1;
   }
 
   // Boyer–Moore–Horspool_algorithm
@@ -649,13 +648,13 @@ static inline int bstrIndexOfCmp(const struct bstr_const_slice_s haystack, size_
     }
     i += skip_table[haystack.buf[i + needle.len - 1]];
   }
-  return BSTR_ERR;
+  return -1;
 
 }
 
 static inline int bstrLastIndexOfCmp(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle, bstr_cmp_handle handle) {
   if(needle.len > haystack.len || needle.len == 0)
-    return BSTR_ERR;
+    return -1;
 
   assert(offset <= haystack.len);
   const size_t startIndex = (offset <= (haystack.len - needle.len)) ? offset : (haystack.len - needle.len); 
@@ -673,7 +672,7 @@ static inline int bstrLastIndexOfCmp(const struct bstr_const_slice_s haystack, s
       }
       if(i == 0) break;
     }
-    return BSTR_ERR;
+    return -1;
   }
 
   // Boyer–Moore–Horspool_algorithm
@@ -700,7 +699,7 @@ static inline int bstrLastIndexOfCmp(const struct bstr_const_slice_s haystack, s
     if(skip > i) break;
     i -= skip;
   }
-  return BSTR_ERR;
+  return -1;
   
 }
 
@@ -749,7 +748,7 @@ int bstrIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_c
       } 
     }
   }
-  return BSTR_ERR;
+  return false;
 }
 
 int bstrLastIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s characters) {
@@ -760,6 +759,5 @@ int bstrLastIndexOfAny(const struct bstr_const_slice_s haystack, const struct bs
       } 
     }
   }
-  return BSTR_ERR;
-
+  return false;
 }

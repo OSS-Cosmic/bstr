@@ -13,19 +13,76 @@
 #define CHAR_TABLE_LEN (1 << CHAR_BIT)
 #define BSTR_MAX_PREALLOC (1024*1024)
 
-typedef int(*bstr_cmp_handle) (struct bstr_slice_s s0, struct bstr_slice_s s1);
+static inline bool charToDigit(uint8_t c , uint8_t base, uint8_t* res) {
+  uint8_t val = 0;
+  if(c >= '0' && c <= '9')
+    val = c - '0';
+  if(c >= 'a' && c <= 'z')
+    val = c - 'a' + 10;
+  if(c >= 'A' && c <= 'Z') 
+    val = c - 'A' + 10;
+  if(val >= base) 
+    return false;
+  (*res) = val;
+  return true;
+}
+
+
+typedef bool(*bstr_cmp_handle) (struct bstr_const_slice_s s0, struct bstr_const_slice_s s1);
 
 struct bstr_s bstrCreate(const char *init) {
   size_t initlen = (init == NULL) ? 0 : strlen(init);
   return bstrCreateLen(init, initlen);
 }
 
-
-int bstrAssign(struct bstr_s* str, const struct bstr_slice_s slice) {
-  return BSTR_OK;
+void bstrToUpper(struct bstr_slice_s slice) {
+    for(size_t i = 0; i < slice.len; i++) {
+        slice.buf[i] = toupper(slice.buf[i]);
+    }
+}
+void bstrToLower(struct bstr_slice_s slice) {
+    for(size_t i = 0; i < slice.len; i++) {
+        slice.buf[i] = tolower(slice.buf[i]);
+    }
 }
 
-int bstrSetLen(struct bstr_s* str, size_t len) {
+struct bstr_const_slice_s bstrTrim(struct bstr_const_slice_s slice) {
+  return bstrLeftTrim(bstrRightTrim(slice));
+}
+struct bstr_const_slice_s bstrRightTrim(struct bstr_const_slice_s slice) {
+  if (BSTR_SLICE_EMPTY(slice))
+    return (struct bstr_const_slice_s){slice.buf, 0};
+  for (size_t i = slice.len - 1;; i--) {
+    if (!isspace(slice.buf[i])) {
+      return (struct bstr_const_slice_s){slice.buf, i + 1};
+    }
+    if(i == 0) break;
+  }
+  return (struct bstr_const_slice_s){slice.buf, 0};
+}
+
+struct bstr_const_slice_s bstrLeftTrim(struct bstr_const_slice_s slice) {
+  if (BSTR_SLICE_EMPTY(slice))
+    return (struct bstr_const_slice_s){slice.buf, 0};
+  for (size_t i = 0; i < slice.len; i++) {
+    if (!isspace(slice.buf[i])) {
+      return (struct bstr_const_slice_s){slice.buf + i, slice.len - i};
+    }
+  }
+  return (struct bstr_const_slice_s){slice.buf, 0};
+}
+
+bool bstrAssign(struct bstr_s* str, const struct bstr_const_slice_s slice) {
+    // set the length of the string alloc will 
+    if(!bstrSetLen(str, slice.len + 1))
+        return false;
+    // slices can potentially overlap to the dest string 
+    //    trimming and assigning
+    memmove(str->buf, slice.buf, slice.len); 
+    return true;
+}
+
+bool bstrSetLen(struct bstr_s* str, size_t len) {
   if(len > str->alloc) {
     assert(len > str->len);
     size_t reqSize = len + 1;
@@ -36,12 +93,12 @@ int bstrSetLen(struct bstr_s* str, size_t len) {
     }
     str->buf = s_realloc(str->buf, reqSize);
     if(str->buf == NULL)
-      return BSTR_ERR;
+      return false;
     str->alloc = reqSize;
   }
   str->len = len;
   str->buf[str->len] = '\0';
-  return BSTR_OK;
+  return true;
 }
 
 int bstrUpdateLen(struct bstr_s* str) {
@@ -51,11 +108,11 @@ int bstrUpdateLen(struct bstr_s* str) {
   return BSTR_OK; 
 }
 
-int bstrClear(struct bstr_s* str) {
-  if(bstrSetLen(str, 0) != BSTR_OK)
-    return BSTR_ERR;
+bool bstrClear(struct bstr_s* str) {
+  if(!bstrSetLen(str, 0))
+    return false;
   str->buf[0] = 0;
-  return BSTR_OK;
+  return true;
 }
 struct bstr_s bstrCreateLen(const char *init, size_t len) {
     struct bstr_s s = {};
@@ -80,8 +137,8 @@ void bstrFree(struct bstr_s* str) {
   str->buf = NULL;
 }
 
-int bstrAppendSlice(struct bstr_s* str, const struct bstr_slice_s slice) {
-  if(bstrMakeRoomFor(str, slice.len + 1) != BSTR_OK)
+int bstrAppendSlice(struct bstr_s* str, const struct bstr_const_slice_s slice) {
+  if(!bstrMakeRoomFor(str, slice.len + 1))
     return BSTR_ERR;
   for(size_t i = 0; i < slice.len; i++) {
     str->buf[str->len + i] = slice.buf[i];
@@ -89,6 +146,263 @@ int bstrAppendSlice(struct bstr_s* str, const struct bstr_slice_s slice) {
   str->len += slice.len;
   str->buf[str->len] = '\0';
   return BSTR_OK;
+}
+
+int bstrfmtll(struct bstr_slice_s slice, long long value) { 
+    unsigned long long v;
+    /* Generate the string representation, this method produces
+     * a reversed string. */
+    if (value < 0) {
+        /* Since v is unsigned, if value==LLONG_MIN then
+         * -LLONG_MIN will overflow. */
+        if (value != LLONG_MIN) {
+            v = -value;
+        } else {
+            v = ((unsigned long long)LLONG_MAX) + 1;
+        }
+    } else {
+        v = value;
+    }
+    char* p = slice.buf;
+    do {
+        // early escape if we write past the end of the slice
+        if(p + 1 >= slice.buf + slice.len)
+            return -1;
+        *p++ = '0'+(v%10);
+        v /= 10;
+    } while(v);
+    if (value < 0) *p++ = '-';
+
+    /* Compute length and add null term. */
+    const int len = p - slice.buf;
+
+    /* Reverse the string. */
+    p--;
+    char* s = slice.buf;
+    while(s < p) {
+        const char aux = *s;
+        *s = *p;
+        *p = aux;
+        s++;
+        p--;
+    }
+    return len;
+}
+
+int bstrfmtull(struct bstr_slice_s slice, unsigned long long value) {
+    unsigned long long v;
+    /* Generate the string representation, this method produces
+     * a reversed string. */
+    char* p = slice.buf;
+    do {
+        // early escape if we write past the end of the slice
+        if(p + 1 >= slice.buf + slice.len)
+            return -1;
+        *p++ = '0'+(value%10);
+        value /= 10;
+    } while(v);
+
+    /* Compute length and add null term. */
+    const int len = p - slice.buf;
+
+    /* Reverse the string. */
+    p--;
+    char* s = slice.buf;
+    while(s < p) {
+        const char aux = *s;
+        *s = *p;
+        *p = aux;
+        s++;
+        p--;
+    }
+    return len;
+}
+
+bool bstrcatfmt(struct bstr_s* s, char const *fmt, ...) {
+    const char *f = fmt;
+    va_list ap;
+
+    /* To avoid continuous reallocations, let's start with a buffer that
+     * can hold at least two times the format string itself. It's not the
+     * best heuristic but seems to work in practice. */
+    if(!bstrMakeRoomFor(s, strlen(fmt)*2)) 
+        return false; // we failed to make room for
+    va_start(ap,fmt);
+    f = fmt;    /* Next format specifier byte to process. */
+    while(*f) {
+        char next;
+        long long num;
+
+        /* Make sure there is always space for at least 1 char. */
+        if (BSTR_AVIL(s)==0) {
+            if(!bstrMakeRoomFor(s,1))
+                return false;
+        }
+        assert(s->len <= s->alloc);
+
+        switch(*f) {
+        case '%':
+            next = *(f+1);
+            if (next == '\0') break;
+            f++;
+            switch(next) {
+            case 'c':
+                num = va_arg(ap,int);
+                s->buf[s->len++] = num;
+                break;
+            case 's': {
+              char *str = va_arg(ap, char *);
+              if (!bstrMakeRoomFor(s, strlen(str)))
+                return false;
+              break;
+            }
+            case 'S': {
+                const struct bstr_const_slice_s str = va_arg(ap,struct bstr_const_slice_s);
+                if(!bstrMakeRoomFor(s, str.len))
+                  return false;
+                memcpy(s->buf + s->len, str.buf, str.len);
+                s->len += str.len;
+                break;
+            }
+            case 'i':
+            case 'I':
+            case 'l':
+                if (next == 'i') {
+                    num = va_arg(ap,int);
+                    if(!bstrMakeRoomFor(s, BSTR_LSTR_SIZE))
+                      return false;
+                } else if (next == 'l') {
+                    num = va_arg(ap,long);
+                    if(!bstrMakeRoomFor(s, BSTR_LLSTR_SIZE))
+                      return false;
+                } else {
+                    num = va_arg(ap,long long);
+                    if(!bstrMakeRoomFor(s, BSTR_LLSTR_SIZE))
+                      return false;
+                }
+                const int len = bstrfmtll(BSTR_AVAIL_SLICE(s), num);
+                if(len == -1)
+                  return false;
+                s->len += len;
+                
+                break;
+            case 'u':
+            case 'U':
+            case 'L': {
+                unsigned long long unum;
+                if (next == 'u') {
+                    unum = va_arg(ap,unsigned int);
+                    if(!bstrMakeRoomFor(s, BSTR_LSTR_SIZE))
+                      return false;
+                } else if (next == 'L') {
+                    unum = va_arg(ap,unsigned long);
+                    if(!bstrMakeRoomFor(s, BSTR_LLSTR_SIZE))
+                      return false;
+                } else {
+                    unum = va_arg(ap,unsigned long long);
+                    if(!bstrMakeRoomFor(s, BSTR_LLSTR_SIZE))
+                      return false;
+                }
+                const int len = bstrfmtull(BSTR_AVAIL_SLICE(s),unum);
+                if(len == -1)
+                  return false;
+                s->len += len;
+                
+                break;
+            }
+            default: /* Handle %% and generally %<unknown>. */
+                s->buf[s->len++] = next;
+                break;
+            }
+            break;
+        default:
+            s->buf[s->len++] = *f;
+            break;
+        }
+        f++;
+    }
+    va_end(ap);
+
+    /* Add null-term */
+    s->buf[s->len] = '\0';
+    return s;
+
+} 
+
+static inline size_t readNumberSign(const char* buf, size_t pos, size_t len , int* result_sign) {
+  assert(result_sign);
+  if(pos + 1 >= len) {
+		switch(buf[0]) {
+			case '+':
+				(*result_sign) = 1;
+				return 1;
+			case '-':
+				(*result_sign) = -1;
+				return 1;
+		}
+  }
+  return 0;
+}
+
+static inline size_t readNumberBase(const char* buf, size_t pos, size_t len , int* base) { 
+	assert(base);
+	(*base) = 10;
+	if ((*base) == 0) {
+		if (pos + 2 >= len && buf[0] == '0') {
+			switch (downcase(buf[1])) {
+				case 'b':
+					(*base) = 2;
+					return 2;
+				case 'o':
+					(*base) = 8;
+					return 2;
+				case 'x':
+					(*base) = 16;
+					return 2;
+			}
+		}
+	}
+	return 0;
+}
+
+bool bstrReadull(struct bstr_const_slice_s slice, int base, unsigned long long *result) {
+  assert(result);
+  size_t pos = 0;
+  int numBase = 0;
+  pos += readNumberBase(slice.buf, pos, slice.len, &numBase);
+  unsigned long long val = 0;
+  for (; pos < slice.len; pos++) {
+    uint8_t digit = 0;
+    if (!charToDigit(slice.buf[pos], numBase, &digit))
+      return false;
+    if (val != 0) {
+      val *= numBase;
+    }
+    val += digit;
+  }
+  (*result) = val;
+  return true;
+}
+bool bstrReadll(struct bstr_const_slice_s slice, int base, long long*result) {
+  assert(result);
+  size_t pos = 0;
+  int sign = 1;
+  int numBase = 0;
+  pos += readNumberSign(slice.buf, pos, slice.len, &sign);
+  pos += readNumberBase(slice.buf, pos, slice.len, &numBase);
+  int64_t val = 0;
+  for (; pos < slice.len; pos++) {
+    uint8_t digit = 0;
+    if (!charToDigit(slice.buf[pos], numBase, &digit))
+      return false;
+    
+    if (val != 0) {
+      val *= numBase;
+    }
+    val += (digit * sign);
+  }
+  (*result) = val;
+  return true;
 }
 
 int bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap) {
@@ -131,7 +445,7 @@ int bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap) {
   }
 
   /* Finally concat the obtained string to the SDS string and return it. */
-  bstrAppendSlice(str, (struct bstr_slice_s){.buf = buf, .len = bufstrlen});
+  bstrAppendSlice(str, (struct bstr_const_slice_s){.buf = buf, .len = bufstrlen});
   if (buf != staticbuf)
     s_free(buf);
   return BSTR_OK;
@@ -151,7 +465,7 @@ int bstrcatprintf(struct bstr_s* s, const char *fmt, ...) {
     return result;
 }
 
-int bstrInsertSlice(struct bstr_s* str, size_t offset, const struct bstr_slice_s slice) {
+int bstrInsertSlice(struct bstr_s* str, size_t offset, const struct bstr_const_slice_s slice) {
   assert(offset <= str->len);
   if(bstrMakeRoomFor(str, slice.len + 1) != BSTR_OK)
     return BSTR_ERR;
@@ -165,16 +479,16 @@ int bstrInsertSlice(struct bstr_s* str, size_t offset, const struct bstr_slice_s
 }
 
 int bstrAppendChar(struct bstr_s* str, char b) {
-  return bstrAppendSlice(str, (struct bstr_slice_s){ .buf = &b, .len = 1});
+  return bstrAppendSlice(str, (struct bstr_const_slice_s){ .buf = &b, .len = 1});
 }
 
 int bstrInsertChar(struct bstr_s* str, size_t i, char b) {
-  return bstrInsertSlice(str, i, (struct bstr_slice_s){ .buf = &b, .len = 1});
+  return bstrInsertSlice(str, i, (struct bstr_const_slice_s){ .buf = &b, .len = 1});
 }
 
-int bstrMakeRoomFor(struct bstr_s* str, size_t addlen) {
+bool bstrMakeRoomFor(struct bstr_s* str, size_t addlen) {
   const size_t avail = str->alloc - str->len;
-  if(avail >= addlen) return BSTR_OK;
+  if(avail >= addlen) return true;
   
   size_t reqSize = str->len + addlen;
   if(reqSize < BSTR_MAX_PREALLOC) {
@@ -183,55 +497,51 @@ int bstrMakeRoomFor(struct bstr_s* str, size_t addlen) {
     reqSize += BSTR_MAX_PREALLOC;
   }
   str->buf = s_realloc(str->buf, reqSize);
+  if(!str->buf)
+    return false;
   str->alloc = reqSize;
-  return BSTR_OK;
+  return true;
 }
 
-struct bstr_slice_s bstrSplitItr(struct bstr_split_iterable_s* iterable) {
+struct bstr_const_slice_s bstrSplitItr(struct bstr_split_iterable_s* iterable) {
   assert(bstrSliceValid(iterable->buffer));
   assert(bstrSliceValid(iterable->delim));
   if(iterable->cursor == iterable->buffer.len) 
-    return (struct bstr_slice_s){0};
+    return (struct bstr_const_slice_s){0};
 
   const char* begin = iterable->buffer.buf + iterable->cursor;
-  const int offset = bstrIndexOfOffset(BSTR_TO_SLICE(&(iterable->buffer)), iterable->cursor, iterable->delim);
+  const int offset = bstrIndexOfOffset(BSTR_TO_CONSTSLICE((iterable->buffer)), iterable->cursor, iterable->delim);
   if(offset == -1) {
-    struct bstr_slice_s res =  bstrSliceSub(iterable->buffer, iterable->cursor, iterable->buffer.len);
+    struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(&(iterable->buffer), iterable->cursor, iterable->buffer.len);
     iterable->cursor = iterable->buffer.len; // move the cursor to the very end of the buffer
     return res;
   }
-  struct bstr_slice_s res =  bstrSliceSub(iterable->buffer, iterable->cursor, offset);
+  struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(&(iterable->buffer), iterable->cursor, offset);
   iterable->cursor = offset + iterable->delim.len; 
   return res;
 }
 
-struct bstr_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s* iterable) {
+struct bstr_const_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s* iterable) {
   assert(bstrSliceValid(iterable->buffer));
   assert(bstrSliceValid(iterable->delim));
   if(iterable->cursor == 0) 
-    return (struct bstr_slice_s){0};
+    return (struct bstr_const_slice_s){0};
   
   const char* begin = iterable->buffer.buf + iterable->cursor;
-  const int offset = bstrLastIndexOfOffset(BSTR_TO_SLICE(&(iterable->buffer)), iterable->cursor - 1, iterable->delim);
+  const int offset = bstrLastIndexOfOffset(BSTR_TO_CONSTSLICE((iterable->buffer)), iterable->cursor - 1, iterable->delim);
   if(offset == -1) {
-    struct bstr_slice_s res =  bstrSliceSub(iterable->buffer, 0, iterable->cursor);
+    struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(&(iterable->buffer), 0, iterable->cursor);
     iterable->cursor = 0; // move the cursor to the very beginning of the buffer
     return res;
   }
-  struct bstr_slice_s res =  bstrSliceSub(iterable->buffer, offset + iterable->delim.len, iterable->cursor);
+  assert(offset + iterable->delim.len <= iterable->cursor);
+  struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(&(iterable->buffer), offset + iterable->delim.len, iterable->cursor);
   iterable->cursor = offset; 
   return res;
 }
 
 
-/*  
- *  Compare two strings without differentiating between case. The return
- *  value is the difference of the values of the characters where the two
- *  strings first differ after lower case transformation, otherwise 0 is
- *  returned indicating that the strings are equal. If the lengths are
- *  different, then a difference from 0 is given. 
- */
-int bstrCaselessCompare(const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
+int bstrCaselessCompare(const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1) {
   if(b0.buf == b1.buf) {
     goto same_str; // same string but length is different 
   }
@@ -252,7 +562,7 @@ same_str:
   return 0;
 }
 
-int bstrCompare (const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
+int bstrCompare (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1) {
   if(b0.buf == b1.buf) {
     goto same_str; // same string but length is different 
   }
@@ -274,7 +584,7 @@ same_str:
   return 0;
 }
 
-int bstrCaselessEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
+bool bstrCaselessEq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1) {
   if(b0.len != b1.len) 
     return 0;
 
@@ -288,7 +598,7 @@ int bstrCaselessEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1) 
   return 1;
 }
 
-int bstrEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
+bool bstrEq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1) {
   //printf("EQ: \"%.*s\" -- \"%.*s\"\n", (int)b0.len, b0.buf, (int)b1.len, b1.buf);
   if(b0.len != b1.len) 
     return 0;
@@ -296,20 +606,20 @@ int bstrEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1) {
   size_t i1 = 0;
   for (; i0 < b0.len && i1 < b1.len; i0++, i1++) {
     if(b0.buf[i0] != b1.buf[i1]) {
-      return 0;
+      return false;
     }
   }
-  return 1;
+  return true;
 }
 
-static inline int bstrIndexOfCmp(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle, bstr_cmp_handle handle) {
+static inline int bstrIndexOfCmp(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle, bstr_cmp_handle handle) {
   if(needle.len > haystack.len || needle.len == 0)
     return BSTR_ERR;
 
   if(haystack.len < 52 && needle.len <= 4) {
     for(size_t i = offset; i < (haystack.len - (needle.len - 1)); i++){
       for(size_t j = 0; j < needle.len; j++) {
-        if(handle((struct bstr_slice_s){
+        if(handle((struct bstr_const_slice_s){
           .buf = haystack.buf + i,
           .len = needle.len
         }, needle)) {
@@ -331,7 +641,7 @@ static inline int bstrIndexOfCmp(const struct bstr_slice_s haystack, size_t offs
 
   size_t i = offset;
   while(i <= haystack.len - needle.len) {
-    if (bstrEq((struct bstr_slice_s){
+    if (bstrEq((struct bstr_const_slice_s){
       .buf = haystack.buf + i,
       .len = needle.len
     }, needle)) {
@@ -343,7 +653,7 @@ static inline int bstrIndexOfCmp(const struct bstr_slice_s haystack, size_t offs
 
 }
 
-static inline int bstrLastIndexOfCmp(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle, bstr_cmp_handle handle) {
+static inline int bstrLastIndexOfCmp(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle, bstr_cmp_handle handle) {
   if(needle.len > haystack.len || needle.len == 0)
     return BSTR_ERR;
 
@@ -351,9 +661,10 @@ static inline int bstrLastIndexOfCmp(const struct bstr_slice_s haystack, size_t 
   const size_t startIndex = (offset <= (haystack.len - needle.len)) ? offset : (haystack.len - needle.len); 
   
   if(haystack.len < 52 && needle.len <= 4) {
-    for(size_t i = startIndex;; i--){
+    for(size_t i = startIndex;; i--) {
+      assert(i < haystack.len);
       for(size_t j = 0; j < needle.len; j++) {
-        if(handle((struct bstr_slice_s){
+        if(handle((struct bstr_const_slice_s){
           .buf = haystack.buf + i,
           .len = needle.len
         }, needle)) {
@@ -379,7 +690,7 @@ static inline int bstrLastIndexOfCmp(const struct bstr_slice_s haystack, size_t 
 
   size_t i = startIndex; 
   while(1) {
-    if (handle((struct bstr_slice_s){
+    if (handle((struct bstr_const_slice_s){
       .buf = haystack.buf + i,
       .len = needle.len
     }, needle)) {
@@ -393,44 +704,44 @@ static inline int bstrLastIndexOfCmp(const struct bstr_slice_s haystack, size_t 
   
 }
 
-int bstrIndexOfOffset(const struct bstr_slice_s haystack, size_t offset,
-                      const struct bstr_slice_s needle) {
+int bstrIndexOfOffset(const struct bstr_const_slice_s haystack, size_t offset,
+                      const struct bstr_const_slice_s needle) {
   return bstrIndexOfCmp(haystack, offset, needle, bstrEq);
 }
 
-int bstrIndexOf(const struct bstr_slice_s haystack,
-                const struct bstr_slice_s needle) {
+int bstrIndexOf(const struct bstr_const_slice_s haystack,
+                const struct bstr_const_slice_s needle) {
   return bstrIndexOfCmp(haystack, 0, needle, bstrEq);
 }
 
-int bstrIndexOfCaseless(const struct bstr_slice_s haystack,
-                        const struct bstr_slice_s needle) {
+int bstrIndexOfCaseless(const struct bstr_const_slice_s haystack,
+                        const struct bstr_const_slice_s needle) {
   return bstrIndexOfCmp(haystack, 0, needle, bstrCaselessEq);
 }
 
-int bstrIndexOfCaselessOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle) {
+int bstrIndexOfCaselessOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle) {
   return bstrIndexOfCmp(haystack, offset, needle, bstrCaselessEq);
 }
 
-int bstrLastIndexOf(const struct bstr_slice_s haystack,
-                    const struct bstr_slice_s needle) {
+int bstrLastIndexOf(const struct bstr_const_slice_s haystack,
+                    const struct bstr_const_slice_s needle) {
   return bstrLastIndexOfCmp(haystack, haystack.len, needle, bstrEq);
 }
 
-int bstrLastIndexOfOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle) {
+int bstrLastIndexOfOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle) {
   return bstrLastIndexOfCmp(haystack, offset, needle, bstrEq);
 }
 
-int bstrLastIndexOfCaseless(const struct bstr_slice_s haystack,
-                            const struct bstr_slice_s needle) {
+int bstrLastIndexOfCaseless(const struct bstr_const_slice_s haystack,
+                            const struct bstr_const_slice_s needle) {
   return bstrLastIndexOfCmp(haystack, haystack.len, needle, bstrCaselessEq);
 }
 
-int bstrLastIndexOfCaselessOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle) {
+int bstrLastIndexOfCaselessOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle) {
   return bstrLastIndexOfCmp(haystack, offset, needle, bstrCaselessEq);
 }
 
-int bstrIndexOfAny(const struct bstr_slice_s haystack, const struct bstr_slice_s characters) {
+int bstrIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s characters) {
   for(size_t i = 0; i < haystack.len; i++) {
     for(size_t j = 0; characters.len; j++) {
       if(haystack.buf[i] == characters.buf[j]) {
@@ -441,7 +752,7 @@ int bstrIndexOfAny(const struct bstr_slice_s haystack, const struct bstr_slice_s
   return BSTR_ERR;
 }
 
-int bstrLastIndexOfAny(const struct bstr_slice_s haystack, const struct bstr_slice_s characters) {
+int bstrLastIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s characters) {
   for(size_t i = haystack.len;; i--){
     for(size_t j = 0; characters.len; j++) {
       if(haystack.buf[i] == characters.buf[j]) {

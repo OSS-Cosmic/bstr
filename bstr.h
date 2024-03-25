@@ -46,10 +46,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-
+#include <stdbool.h>
 #define BSTR_ERR (-1)
 #define BSTR_OK (0)
 #define BSTR_BS_BUFF_LENGTH_GET (0)
+
+#define BSTR_LLSTR_SIZE 21
+#define BSTR_LSTR_SIZE 16 
 
 const char *BSTR_NOINIT = "BSTR_NOINIT";
 
@@ -59,29 +62,47 @@ struct bstr_s {
   char* buf;
 };
 
-struct bstr_slice_s {
-  const char* buf;
+// a const slice
+struct bstr_const_slice_s {
+  const char * buf;
   size_t len;
 }; 
+struct bstr_slice_s {
+  char * buf;
+  size_t len;
+}; 
+#define BSTR_TO_CONSTSLICE(a) (struct bstr_const_slice_s){(a).buf, (a).len}
+#define CSTR_TO_CONSTSLICE(c) (struct bstr_const_slice_s){c, strlen(c)}
+#define BSTR_CONSTSLICE_SUB(s, b, e) (struct bstr_const_slice_s){(s)->buf + (b), (e) - (b)} 
 #define BSTR_TO_SLICE(a) (struct bstr_slice_s){(a)->buf, (a)->len}
-#define BSTR_C_SLICE(c) (struct bstr_slice_s){(const char*)(c), strlen(c)}
-inline int bstrSliceValid(const struct bstr_slice_s slice);
-inline struct bstr_slice_s bstrSliceSub(const struct bstr_slice_s, size_t begin, size_t end);
+#define CSTR_TO_SLICE(c) (struct bstr_slice_s){(const char*)(c), strlen(c)}
+#define BSTR_AVIL(b) ((b)->alloc - (b)->len)
+#define BSTR_AVAIL_SLICE(b)((struct bstr_slice_s){(b)->buf + (b)->len, BSTR_AVIL(b)})
+#define BSTR_SLICE_EMPTY(b) ((b).len == 0 || (b).buf == NULL)
+
+inline int bstrSliceValid(const struct bstr_const_slice_s slice);
 
 struct bstr_s bstrEmpty();
 struct bstr_s bstrCreate(const char *init);
 struct bstr_s bstrCreateLen(const char *init, size_t len);
 void bstrFree(struct bstr_s* str);
 
-int bstrAppendSlice(struct bstr_s* str, const struct bstr_slice_s slice);
+void bstrToUpper(struct bstr_slice_s slice);
+void bstrToLower(struct bstr_slice_s slice);
+
+struct bstr_const_slice_s bstrTrim(struct bstr_const_slice_s slice);
+struct bstr_const_slice_s bstrRightTrim(struct bstr_const_slice_s slice);
+struct bstr_const_slice_s bstrLeftTrim(struct bstr_const_slice_s slice);
+
+int bstrAppendSlice(struct bstr_s* str, const struct bstr_const_slice_s slice);
 int bstrAppendChar(struct bstr_s* str, char b);
 int bstrInsertChar(struct bstr_s* str, size_t i, char b);
-int bstrInsertSlice(struct bstr_s* str, size_t i, const struct bstr_slice_s slice);
-int bstrAssign(struct bstr_s* str, const struct bstr_slice_s slice);
+int bstrInsertSlice(struct bstr_s* str, size_t i, const struct bstr_const_slice_s slice);
+bool bstrAssign(struct bstr_s* str, const struct bstr_const_slice_s slice);
 
 struct bstr_split_iterable_s {
-  const struct bstr_slice_s buffer; // the buffer to iterrate over
-  const struct bstr_slice_s delim; // delim to split across 
+  const struct bstr_const_slice_s buffer; // the buffer to iterrate over
+  const struct bstr_const_slice_s delim; // delim to split across 
   size_t cursor; // the current position in the buffer
 };
 
@@ -103,7 +124,8 @@ struct bstr_split_iterable_s {
  * }
  *
  **/
-struct bstr_slice_s bstrSplitItr(struct bstr_split_iterable_s*);
+struct bstr_const_slice_s bstrSplitItr(struct bstr_split_iterable_s*);
+
 /** 
  * splits a string using an iterator and returns a slice. a valid slice means there are 
  * are more slices.
@@ -124,8 +146,7 @@ struct bstr_slice_s bstrSplitItr(struct bstr_split_iterable_s*);
  * }
  *
  **/
-
-struct bstr_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s*);
+struct bstr_const_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s*);
 
 /* Set the bstr string length to the length as obtained with strlen(), so
  * considering as content only up to the first null term character.
@@ -143,50 +164,125 @@ struct bstr_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s*);
  * remains 6 bytes. */
 int bstrUpdateLen(struct bstr_s* str);
 
-int bstrMakeRoomFor(struct bstr_s* str, size_t addlen);
-int bstrSetLen(struct bstr_s* str, size_t len);
+/* Enlarge the free space at the end of the bstr string so that the caller
+ * is sure that after calling this function can overwrite up to addlen
+ * bytes after the end of the string, plus one more byte for nul term.
+ *
+ * Note: this does not change the *length* of the bstr string as len 
+ * but only the free buffer space we have. */
+bool bstrMakeRoomFor(struct bstr_s* str, size_t addlen);
+/* Enlarge the free space at the end of the bstr string so that the caller
+ * is sure that after calling this function can overwrite up to addlen
+ * bytes after the end of the string, plus one more byte for nul term.
+ *
+ * Note: this does not change the *length* of the bstr string as len 
+ * but only the free buffer space we have. */
+bool bstrSetLen(struct bstr_s* str, size_t len);
 
-/* Modify an bstr string in-place to make it empty (zero length).
+/* Modify an bstr string in-place to make it empty (zero length) set null terminator.
  * However all the existing buffer is not discarded but set as free space
  * so that next append operations will not require allocations up to the
  * number of bytes previously available. */
-int bstrClear(struct bstr_s* str);
+bool bstrClear(struct bstr_s* str);
 
-int bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap);
+
+/* Append to the bstr string 's' a string obtained using printf-alike format
+ * specifier.
+ *
+ * After the call, the modified sds string is no longer valid and all the
+ * references must be substituted with the new pointer returned by the call.
+ *
+ * Example:
+ *
+ * s = bstrCreate("Sum is: ");
+ * bstrcatprintf(s,"%d+%d = %d",a,b,a+b)
+ *
+ * if valid BSTR_OK else BSTR_ERR
+ */
 int bstrcatprintf(struct bstr_s* s, const char *fmt, ...); 
+int bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap);
+
+/* This function is similar to bstrcatprintf, but much faster as it does
+ * not rely on sprintf() family functions implemented by the libc that
+ * are often very slow. Moreover directly handling the sds string as
+ * new data is concatenated provides a performance improvement.
+ *
+ * However this function only handles an incompatible subset of printf-alike
+ * format specifiers:
+ *
+ * %c - char
+ * %s - C String
+ * %S - struct bstr_const_slice_s slice 
+ * %i - signed int
+ * %l - signed long
+ * %I - 64 bit signed integer (long long, int64_t)
+ * %u - unsigned int
+ * %L - unsigned long
+ * %U - 64 bit unsigned integer (unsigned long long, uint64_t)
+ * %% - Verbatim "%" character.
+ */
+bool bstrcatfmt(struct bstr_s*, char const *fmt, ...); 
+/**
+ * this should fit safetly within BSTR_LLSTR_SIZE. 
+ *
+ * the number of bytes written to the slice is returned else -1 if the 
+ * value is unable to be written or the lenght of the slice is greater
+ *
+ **/
+int bstrfmtll(struct bstr_slice_s slice, long long value); 
+int bstrfmtull(struct bstr_slice_s slice, unsigned long long value); 
+
+/*  
+ * Parse a string into a 64-bit integer.
+ *
+ * when base is 0, the function will try to determine the base from the string
+ *   * if the string starts with 0x, the base will be 16
+ *   * if the string starts with 0b, the base will be 2
+ *   * if the string starts with 0o, the base will be 8
+ *   * otherwise the base will be 10
+ */
+bool bstrReadll(struct bstr_const_slice_s, int base, long long* result);
+bool bstrReadull(struct bstr_const_slice_s, int base, unsigned long long* result);
 
 /* Scan/search functions */
-int bstrCaselessCompare (const struct bstr_slice_s b0, const struct bstr_slice_s b1);
-int bstrCompare  (const struct bstr_slice_s b0, const struct bstr_slice_s b1);
+/*  
+ *  Compare two strings without differentiating between case. The return
+ *  value is the difference of the values of the characters where the two
+ *  strings first differ after lower case transformation, otherwise 0 is
+ *  returned indicating that the strings are equal. If the lengths are
+ *  different, if the first slice is longer 1 else -1. 
+ */
+int bstrCaselessCompare (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1);
+/*
+ *  The return value is the difference of the values of the characters where the
+ *  two strings first differ after lower case transformation, otherwise 0 is
+ *  returned indicating that the strings are equal. If the lengths are
+ *  different, if the first slice is longer 1 else -1.
+ */
+int bstrCompare  (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1);
+/**
+*  Test if two strings are equal ignores case true else false.  
+**/
+bool bstrCaselessEq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1);
+/**
+*  Test if two strings are equal return true else false.  
+**/
+bool bstrEq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1);
 
-int bstrCaselessEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1);
-int bstrEq (const struct bstr_slice_s b0, const struct bstr_slice_s b1);
+int bstrIndexOfOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle);
+int bstrIndexOf(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s needle);
+int bstrLastIndexOfOffset(const struct bstr_const_slice_s str, size_t offset, const struct bstr_const_slice_s needle);
+int bstrLastIndexOf(const struct bstr_const_slice_s str, const struct bstr_const_slice_s needle);
 
-int bstrIndexOfOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle);
-int bstrIndexOf(const struct bstr_slice_s haystack, const struct bstr_slice_s needle);
-int bstrLastIndexOfOffset(const struct bstr_slice_s str, size_t offset, const struct bstr_slice_s needle);
-int bstrLastIndexOf(const struct bstr_slice_s str, const struct bstr_slice_s needle);
+int bstrIndexOfCaselessOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle);
+int bstrIndexOfCaseless(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s needle);
+int bstrLastIndexOfCaseless(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s needle);
+int bstrLastIndexOfCaselessOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle);
 
-int bstrIndexOfCaselessOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle);
-int bstrIndexOfCaseless(const struct bstr_slice_s haystack, const struct bstr_slice_s needle);
-int bstrLastIndexOfCaseless(const struct bstr_slice_s haystack, const struct bstr_slice_s needle);
-int bstrLastIndexOfCaselessOffset(const struct bstr_slice_s haystack, size_t offset, const struct bstr_slice_s needle);
+int bstrIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s characters);
+int bstrLastIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s characters);
 
-int bstrIndexOfAny(const struct bstr_slice_s haystack, const struct bstr_slice_s characters);
-int bstrLastIndexOfAny(const struct bstr_slice_s haystack, const struct bstr_slice_s characters);
-
-struct bstr_slice_s bstrSliceSub(const struct bstr_slice_s s0, size_t begin, size_t end) {
-  assert(begin <= end); 
-  struct bstr_slice_s res = {
-    .buf = s0.buf + begin,
-    .len = end - begin
-  };
-  // the new slice has to be inbetween the incoming slice.
-  assert(end <= s0.len); 
-  assert(begin <= s0.len); 
-  return res;
-}
-int bstrSliceValid(const struct bstr_slice_s slice) {
-  return slice.len > 0 && slice.buf != NULL;
+int bstrSliceValid(const struct bstr_const_slice_s slice) {
+  return slice.buf != NULL;
 }
 #endif

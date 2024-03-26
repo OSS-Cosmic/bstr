@@ -74,13 +74,14 @@ bool bstrAssign(struct bstr_s* str, struct bstr_const_slice_s slice) {
     // slices can potentially overlap to the dest string 
     //    trimming and assigning
     memmove(str->buf, slice.buf, slice.len); 
+    str->buf[str->len] = '\0';
     return true;
 }
 
 bool bstrSetLen(struct bstr_s* str, size_t len) {
-  if(len + 1 > str->alloc) {
+  if(len > str->alloc) {
     assert(len > str->len);
-    size_t reqSize = len + 1;
+    size_t reqSize = len;
     if(reqSize < BSTR_MAX_PREALLOC) {
       reqSize *= 2; 
     } else {
@@ -92,7 +93,6 @@ bool bstrSetLen(struct bstr_s* str, size_t len) {
     str->alloc = reqSize;
   }
   str->len = len;
-  str->buf[str->len] = '\0';
   return true;
 }
 
@@ -143,11 +143,9 @@ struct bstr_s bstrDuplicate(const struct bstr_s* str) {
 bool bstrAppendSlice(struct bstr_s* str, const struct bstr_const_slice_s slice) {
   if(!bstrMakeRoomFor(str, slice.len + 1))
     return false;
-  for(size_t i = 0; i < slice.len; i++) {
-    str->buf[str->len + i] = slice.buf[i];
-  }
+  memmove(str->buf + str->len, slice.buf, slice.len);
   str->len += slice.len;
-  str->buf[str->len] = '\0';
+  str->buf[str->len] = '\0'; // don't expect the user to use memory in the avaliable range
   return true;
 }
 

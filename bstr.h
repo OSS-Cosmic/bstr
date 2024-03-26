@@ -97,12 +97,14 @@ struct bstr_const_slice_s bstrLeftTrim(struct bstr_const_slice_s slice);
  * Note: this does not change the *length* of the bstr string as len 
  * but only the free buffer space we have. */
 bool bstrMakeRoomFor(struct bstr_s* str, size_t addlen);
-/* Enlarge the free space at the end of the bstr string so that the caller
- * is sure that after calling this function can overwrite up to addlen
- * bytes after the end of the string, plus one more byte for nul term.
+/* 
+ * set the lenght of the buffer to the length specified. this
+ * will also trigger a realloction if the lenght is greater then the size
+ * reserved. 
  *
- * Note: this does not change the *length* of the bstr string as len 
- * but only the free buffer space we have. */
+ * Note: this does not set the null terminator for the string.
+ * this will corrupt slices that are referencing a slice out of this buffer.
+ **/
 bool bstrSetLen(struct bstr_s* str, size_t len);
 /**
  * set the amount of memory reserved by the bstr. will only ever increase

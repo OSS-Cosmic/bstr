@@ -255,6 +255,15 @@ UTEST(bstr, bstrLeftTrim) {
 }
 
 UTEST(bstr, bstrTrim) {
+  {
+    struct bstr_s buf = {};
+    bstrAssign(&buf, CSTR_TO_CONSTSLICE("  Hello World "));
+    bstrAssign(&buf, bstrTrim(BSTR_TO_CONSTSLICE(buf)));
+    EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("Hello World")), true);
+    bstrFree(&buf);
+  }
+
+
   EXPECT_EQ(bstrEq(bstrTrim(CSTR_TO_CONSTSLICE("Hello world  ")), CSTR_TO_CONSTSLICE("Hello world")), true);
   EXPECT_EQ(bstrEq(bstrTrim(CSTR_TO_CONSTSLICE("  \t Hello world  ")), CSTR_TO_CONSTSLICE("Hello world")), true);
   EXPECT_EQ(bstrEq(bstrTrim(CSTR_TO_CONSTSLICE("  ")), CSTR_TO_CONSTSLICE("")), true);

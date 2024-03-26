@@ -50,6 +50,14 @@ UTEST(bstr, bstrEq) {
   EXPECT_EQ(bstrEq(CSTR_TO_CONSTSLICE("Hello"), CSTR_TO_CONSTSLICE("Hello ")), 0);
 }
 
+UTEST(bstr, bstrDuplicate) {
+  struct bstr_s s1 = {0};
+  EXPECT_EQ(bstrAssign(&s1, CSTR_TO_CONSTSLICE("Hello World")), true);
+  struct bstr_s s2 = bstrDuplicate(&s1);
+  EXPECT_NE(s1.buf, s2.buf);
+  bstrFree(&s1);
+  bstrFree(&s2);
+}
 
 UTEST(bstr, bstrIterateRev) {
   struct bstr_const_slice_s buf = CSTR_TO_CONSTSLICE("one two three four five");

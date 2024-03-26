@@ -139,15 +139,43 @@ UTEST(bstr, bstrCaselessEq) {
   EXPECT_EQ(bstrCaselessEq(CSTR_TO_CONSTSLICE("Hello"), CSTR_TO_CONSTSLICE("Hello ")), 0);
 }
 
+UTEST(bstr, bstrCatJoin) {
+  struct bstr_s buf ={};
+  struct bstr_const_slice_s slices[] = {
+    CSTR_TO_CONSTSLICE("one"),
+    CSTR_TO_CONSTSLICE("two"),
+    CSTR_TO_CONSTSLICE("three"),
+    CSTR_TO_CONSTSLICE("four"),
+  };
+  EXPECT_EQ(bstrCatJoin(&buf, slices, 4, CSTR_TO_CONSTSLICE(" ")), true);
+  EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("one two three four")), true);
+  bstrFree(&buf);
+}
+
+UTEST(bstr, bstrCatJoinCstr) {
+  struct bstr_s buf ={};
+  char* slices[] = {
+    "one",
+    "two",
+    "three",
+    "four",
+  };
+  EXPECT_EQ(bstrCatJoinCStr(&buf, slices, 4, CSTR_TO_CONSTSLICE(" ")), true);
+  EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("one two three four")), true);
+  bstrFree(&buf);
+}
+
+
 UTEST(bstr, appendSlice) {
-  struct bstr_s buf = bstrCreate("Hello");
+  struct bstr_s buf = {};
+  bstrAssign(&buf, CSTR_TO_CONSTSLICE("Hello"));
   EXPECT_EQ(bstrAppendSlice(&buf, CSTR_TO_CONSTSLICE(" world")), true);
   EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("Hello world")), true);
   bstrFree(&buf);
 }
 
 UTEST(bstr, bstrcatprintf) {
-  struct bstr_s buf = bstrEmpty();
+  struct bstr_s buf = {0};
   EXPECT_EQ(bstrcatprintf(&buf, "Hello %s", "world"), true);
   EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("Hello world")), true);
   bstrFree(&buf);
@@ -164,7 +192,7 @@ UTEST(bstr, bstrcatprintf) {
 }
 
 UTEST(bstr, bstrcatfmt) {
-   struct bstr_s s = bstrEmpty();
+   struct bstr_s s = {0};
    {
      bstrcatfmt(&s, "%S\n", CSTR_TO_CONSTSLICE("Hello World"));
      EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(s), CSTR_TO_CONSTSLICE("Hello World\n")), true );
@@ -180,31 +208,32 @@ UTEST(bstr, bstrcatfmt) {
      EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(s), CSTR_TO_CONSTSLICE("-125\n")), true );
      bstrClear(&s);
    }
+   bstrFree(&s);
 }
 
-
 UTEST(bstr, updateLen) {
-  struct bstr_s buf = bstrCreate("Hello World");
+  struct bstr_s buf = {};
+  bstrAssign(&buf, CSTR_TO_CONSTSLICE("Hello World"));
   buf.buf[5] = '\0';
   bstrUpdateLen(&buf);
+ 
+  EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("Hello")), true );
   EXPECT_EQ(buf.len, 5);
+
   bstrFree(&buf);
 }
 
-
 UTEST(bstr, bstrAssign) {
+  struct bstr_s buf = {};
   {
-    struct bstr_s buf = bstrCreate("");
     bstrAssign(&buf, CSTR_TO_CONSTSLICE("Hello World"));
     EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("Hello World")), true);
-    bstrFree(&buf);
   }
   {
-    struct bstr_s buf = bstrCreate("");
     bstrAssign(&buf, bstrTrim(CSTR_TO_CONSTSLICE("   Hello World   ")));
     EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("Hello World")), true);
-    bstrFree(&buf);
   }
+  bstrFree(&buf);
 
 }
 

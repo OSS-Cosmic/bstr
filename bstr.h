@@ -4,7 +4,7 @@
  * Copyright (c) 2015, Oran Agra
  * Copyright (c) 2015, Redis Labs, Inc
  * Paul Hsieh in 2002-2015
- * Michael Pollind2024 <mpollind at gmail dot com>
+ * Michael Pollind 2024-* <mpollind at gmail dot com>
  * 
  * All rights reserved.
  *
@@ -51,8 +51,6 @@
 #define BSTR_LLSTR_SIZE 21
 #define BSTR_LSTR_SIZE 16 
 
-const char *BSTR_NOINIT = "BSTR_NOINIT";
-
 struct bstr_s {
   size_t alloc;
   size_t len;
@@ -75,15 +73,16 @@ struct bstr_slice_s {
 #define CSTR_TO_SLICE(c) (struct bstr_slice_s){(const char*)(c), strlen(c)}
 #define BSTR_AVIL(b) ((b)->alloc - (b)->len)
 #define BSTR_AVAIL_SLICE(b)((struct bstr_slice_s){(b)->buf + (b)->len, BSTR_AVIL(b)})
+
 #define BSTR_SLICE_EMPTY(b) ((b).len == 0 || (b).buf == NULL)
+#define BSTR_IS_EMPTY(b) ((b).buff == NULL)
 
 inline int bstrSliceValid(const struct bstr_const_slice_s slice);
 
-struct bstr_s bstrEmpty();
-struct bstr_s bstrCreate(const char *init);
-struct bstr_s bstrCreateLen(const char *init, size_t len);
+/**
+ * Creates a string from a slice 
+ **/
 void bstrFree(struct bstr_s* str);
-
 void bstrToUpper(struct bstr_slice_s slice);
 void bstrToLower(struct bstr_slice_s slice);
 
@@ -91,11 +90,41 @@ struct bstr_const_slice_s bstrTrim(struct bstr_const_slice_s slice);
 struct bstr_const_slice_s bstrRightTrim(struct bstr_const_slice_s slice);
 struct bstr_const_slice_s bstrLeftTrim(struct bstr_const_slice_s slice);
 
+/* Enlarge the free space at the end of the bstr string so that the caller
+ * is sure that after calling this function can overwrite up to addlen
+ * bytes after the end of the string, plus one more byte for nul term.
+ *
+ * Note: this does not change the *length* of the bstr string as len 
+ * but only the free buffer space we have. */
+bool bstrMakeRoomFor(struct bstr_s* str, size_t addlen);
+/* Enlarge the free space at the end of the bstr string so that the caller
+ * is sure that after calling this function can overwrite up to addlen
+ * bytes after the end of the string, plus one more byte for nul term.
+ *
+ * Note: this does not change the *length* of the bstr string as len 
+ * but only the free buffer space we have. */
+bool bstrSetLen(struct bstr_s* str, size_t len);
+/**
+ * set the amount of memory reserved by the bstr. will only ever increase
+ * the size of the string 
+ * 
+ * A reserved string can be assigned with bstrAssign
+ **/
+bool bstrSetReserve(struct bstr_s* str, size_t reserveLen); 
+
+/**
+ * takes a bstr and duplicates the underlying buffer.
+ *
+ * the buffer is trimmed down to the length of the string.
+ *
+ * if the buffer fails to allocate then BSTR_IS_EMPTY(b) will be true
+ **/
+struct bstr_s bstrDuplicate(const struct bstr_s* str);
 bool bstrAppendSlice(struct bstr_s* str, const struct bstr_const_slice_s slice);
 bool bstrAppendChar(struct bstr_s* str, char b);
 bool bstrInsertChar(struct bstr_s* str, size_t i, char b);
 bool bstrInsertSlice(struct bstr_s* str, size_t i, const struct bstr_const_slice_s slice);
-bool bstrAssign(struct bstr_s* str, const struct bstr_const_slice_s slice);
+bool bstrAssign(struct bstr_s* str, struct bstr_const_slice_s slice);
 
 struct bstr_split_iterable_s {
   const struct bstr_const_slice_s buffer; // the buffer to iterrate over
@@ -148,45 +177,35 @@ struct bstr_const_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s*);
 /* Set the bstr string length to the length as obtained with strlen(), so
  * considering as content only up to the first null term character.
  *
- * This function is useful when the sds string is hacked manually in some
- * way, like in the following example:
+ * This function is useful when the bstr string has been changed where
+ * the lenght is not correctly updated. using vsprintf for instance.
  *
+ * After the call, slices are not valid if they reference this bstr 
+ * 
  * s = bstrEmpty();
  * s[2] = '\0';
  * bstrUpdateLen(s);
  * printf("%d\n", s.len);
  *
- * The output will be "2", but if we comment out the call to sdsupdatelen()
+ * The output will be "2", but if we comment out the call to bstrUpdateLen()
  * the output will be "6" as the string was modified but the logical length
  * remains 6 bytes. */
 bool bstrUpdateLen(struct bstr_s* str);
 
-/* Enlarge the free space at the end of the bstr string so that the caller
- * is sure that after calling this function can overwrite up to addlen
- * bytes after the end of the string, plus one more byte for nul term.
- *
- * Note: this does not change the *length* of the bstr string as len 
- * but only the free buffer space we have. */
-bool bstrMakeRoomFor(struct bstr_s* str, size_t addlen);
-/* Enlarge the free space at the end of the bstr string so that the caller
- * is sure that after calling this function can overwrite up to addlen
- * bytes after the end of the string, plus one more byte for nul term.
- *
- * Note: this does not change the *length* of the bstr string as len 
- * but only the free buffer space we have. */
-bool bstrSetLen(struct bstr_s* str, size_t len);
 
-/* Modify an bstr string in-place to make it empty (zero length) set null terminator.
+/** 
+ * Modify an bstr string in-place to make it empty (zero length) set null terminator.
  * However all the existing buffer is not discarded but set as free space
  * so that next append operations will not require allocations up to the
- * number of bytes previously available. */
+ * number of bytes previously available. 
+ **/
 bool bstrClear(struct bstr_s* str);
 
 
 /* Append to the bstr string 's' a string obtained using printf-alike format
  * specifier.
  *
- * After the call, the modified sds string is no longer valid and all the
+ * After the call, the modified bstr string is no longer valid and all the
  * references must be substituted with the new pointer returned by the call.
  *
  * Example:
@@ -201,7 +220,7 @@ bool bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap);
 
 /* This function is similar to bstrcatprintf, but much faster as it does
  * not rely on sprintf() family functions implemented by the libc that
- * are often very slow. Moreover directly handling the sds string as
+ * are often very slow. Moreover directly handling the bstr as
  * new data is concatenated provides a performance improvement.
  *
  * However this function only handles an incompatible subset of printf-alike
@@ -218,7 +237,21 @@ bool bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap);
  * %U - 64 bit unsigned integer (unsigned long long, uint64_t)
  * %% - Verbatim "%" character.
  */
-bool bstrcatfmt(struct bstr_s*, char const *fmt, ...); 
+bool bstrcatfmt(struct bstr_s*, char const *fmt, ...);
+
+
+/*
+ * join an array of slices and cat them to bstr. faster since the lenghts are known ahead of time.
+ * the buffer can be pre-reserved upfront.
+ *
+ * this modifies bstr so slices that reference this bstr can become invalid.
+ **/
+bool bstrCatJoin(struct bstr_s*, struct bstr_const_slice_s* slices, size_t numSlices, struct bstr_const_slice_s sep);
+/*
+ * join an array of strings and cat them to bstr 
+ **/
+bool bstrCatJoinCStr(struct bstr_s*, char** argv, size_t argc, struct bstr_const_slice_s sep);
+
 /**
  * this should fit safetly within BSTR_LLSTR_SIZE. 
  *

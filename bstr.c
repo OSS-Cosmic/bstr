@@ -30,11 +30,6 @@ static inline bool charToDigit(uint8_t c , uint8_t base, uint8_t* res) {
 
 typedef bool(*bstr_cmp_handle) (struct bstr_const_slice_s s0, struct bstr_const_slice_s s1);
 
-struct bstr_s bstrCreate(const char *init) {
-  size_t initlen = (init == NULL) ? 0 : strlen(init);
-  return bstrCreateLen(init, initlen);
-}
-
 void bstrToUpper(struct bstr_slice_s slice) {
     for(size_t i = 0; i < slice.len; i++) {
         slice.buf[i] = toupper(slice.buf[i]);
@@ -72,7 +67,7 @@ struct bstr_const_slice_s bstrLeftTrim(struct bstr_const_slice_s slice) {
   return (struct bstr_const_slice_s){slice.buf, 0};
 }
 
-bool bstrAssign(struct bstr_s* str, const struct bstr_const_slice_s slice) {
+bool bstrAssign(struct bstr_s* str, struct bstr_const_slice_s slice) {
     // set the length of the string alloc will 
     if(!bstrSetLen(str, slice.len))
         return false;
@@ -114,27 +109,35 @@ bool bstrClear(struct bstr_s* str) {
   str->buf[0] = 0;
   return true;
 }
-struct bstr_s bstrCreateLen(const char *init, size_t len) {
-    struct bstr_s s = {};
-    s.buf = s_malloc(len+1);
-    if(s.buf == NULL) return s;
-    if (init==BSTR_NOINIT)
-        init = NULL;
-    else if (!init)
-        memset(s.buf, 0, len+1);
-    if (len && init)
-        memcpy(s.buf, init, len);
-    s.buf[len] = '\0';
-    s.len = len;
-    s.alloc = len;
-    return s;
-}
 
 void bstrFree(struct bstr_s* str) {
   s_free(str->buf);
   str->len = 0;
   str->alloc = 0;
   str->buf = NULL;
+}
+
+bool bstrSetReserve(struct bstr_s* str, size_t reserveLen) {
+  if(reserveLen > str->alloc) {
+    str->alloc = reserveLen;
+    str->buf = s_realloc(str->buf, str->alloc);
+    if(str->buf == NULL)
+      return false;
+  }
+  return true;
+}
+
+struct bstr_s bstrDuplicate(const struct bstr_s* str) {
+  assert(str);
+  struct bstr_s result = {};
+  if(str->buf == NULL) 
+    return result; 
+  result.buf = s_malloc(str->len + 1);
+  if(result.buf == NULL) 
+    return result;
+  memcpy(result.buf, str->buf, str->len);
+  result.buf[result.len] = str->len;
+  return result;
 }
 
 bool bstrAppendSlice(struct bstr_s* str, const struct bstr_const_slice_s slice) {
@@ -444,15 +447,11 @@ bool bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap) {
     break;
   }
 
-  /* Finally concat the obtained string to the SDS string and return it. */
+  /* Finally concat the obtained string to the bstr string and return it. */
   bstrAppendSlice(str, (struct bstr_const_slice_s){.buf = buf, .len = bufstrlen});
   if (buf != staticbuf)
     s_free(buf);
   return true;
-}
-
-struct bstr_s bstrEmpty() {
-  return (struct bstr_s) {0};
 }
 
 bool bstrcatprintf(struct bstr_s* s, const char *fmt, ...) {
@@ -749,6 +748,56 @@ int bstrIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_c
     }
   }
   return false;
+}
+
+bool bstrCatJoin(struct bstr_s *str, struct bstr_const_slice_s *slices,
+                 size_t numSlices, struct bstr_const_slice_s sep) {
+{
+    assert(str);
+    assert(slices);
+    if (numSlices == 0)
+      return true; // there is nothing to join just exit
+
+    // calculating the reserve length
+    size_t reserveLen = 0;
+    for (size_t i = 0; i < numSlices; i++) {
+      reserveLen += slices[i].len;
+      reserveLen += sep.len;
+    }
+    reserveLen += 1; // space for the null terminator
+    if(!bstrMakeRoomFor(str, reserveLen)) 
+      return false;
+  }
+  for (size_t i = 0; i < numSlices; i++) {
+    memcpy(str->buf + str->len, slices[i].buf, slices[i].len);
+    str->len += slices[i].len;
+    if (numSlices > 1 && i < numSlices - 1 && sep.len >= 1) {
+      memcpy(str->buf + str->len, sep.buf, sep.len);
+      str->len += sep.len;
+    }
+  }
+  str->buf[str->len] = '\0';
+
+  assert(str->len <= str->alloc); // we've overrun the buffer
+  return true;
+}
+
+
+bool bstrCatJoinCStr(struct bstr_s *str, char **argv, size_t argc, struct bstr_const_slice_s sep) {
+  for(size_t i = 0; i < argc; i++) {
+    const size_t argLen = strlen(argv[i]);
+    if(!bstrMakeRoomFor(str, argLen + sep.len)) 
+      return false;
+    memcpy(str->buf + str->len, argv[i], argLen);
+    str->len += argLen;
+    if (argc > 1 && i < argc - 1 && sep.len >= 1) {
+      memcpy(str->buf + str->len, sep.buf, sep.len);
+      str->len += sep.len;
+    }
+  }
+  str->buf[str->len] = '\0';
+  assert(str->len <= str->alloc); // we've overrun the buffer
+  return true;
 }
 
 int bstrLastIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s characters) {

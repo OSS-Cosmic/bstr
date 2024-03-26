@@ -336,6 +336,8 @@ bool bstrcatfmt(struct bstr_s* s, char const *fmt, ...) {
     }
     va_end(ap);
 
+    if (!bstrMakeRoomFor(s, 1))
+      return false;
     /* Add null-term */
     s->buf[s->len] = '\0';
     return s;
@@ -706,7 +708,6 @@ static inline int bstrLastIndexOfCmp(const struct bstr_const_slice_s haystack, s
     i -= skip;
   }
   return -1;
-  
 }
 
 int bstrIndexOfOffset(const struct bstr_const_slice_s haystack, size_t offset,

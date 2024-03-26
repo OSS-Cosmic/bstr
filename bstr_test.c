@@ -176,17 +176,18 @@ UTEST(bstr, bstrcatprintf) {
   struct bstr_s buf = {0};
   EXPECT_EQ(bstrcatprintf(&buf, "Hello %s", "world"), true);
   EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("Hello world")), true);
-  bstrFree(&buf);
 
+  bstrSetLen(&buf, 0);
   EXPECT_EQ(bstrcatprintf(&buf, "%d", 123), true);
   EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("123")), true);
   
   EXPECT_EQ(bstrcatprintf(&buf, " %lu", 156), true);
   EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("123 156")), true);
-  bstrFree(&buf);
 
+  bstrSetLen(&buf, 0);
   EXPECT_EQ(bstrcatprintf(&buf,"a%cb",0), true);
   EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), (struct bstr_const_slice_s){.buf = "a\0""b", .len = 3}), 1);
+  bstrFree(&buf);
 }
 
 UTEST(bstr, bstrcatfmt) {

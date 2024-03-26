@@ -69,11 +69,11 @@ struct bstr_slice_s {
 }; 
 #define BSTR_TO_CONSTSLICE(a) (struct bstr_const_slice_s){(a).buf, (a).len}
 #define CSTR_TO_CONSTSLICE(c) (struct bstr_const_slice_s){c, strlen(c)}
-#define BSTR_CONSTSLICE_SUB(s, b, e) (struct bstr_const_slice_s){(s)->buf + (b), (e) - (b)} 
-#define BSTR_TO_SLICE(a) (struct bstr_slice_s){(a)->buf, (a)->len}
+#define BSTR_CONSTSLICE_SUB(s, b, e) (struct bstr_const_slice_s){(s).buf + (b), (e) - (b)} 
+#define BSTR_TO_SLICE(a) (struct bstr_slice_s){(a).buf, (a).len}
 #define CSTR_TO_SLICE(c) (struct bstr_slice_s){(const char*)(c), strlen(c)}
-#define BSTR_AVIL(b) ((b)->alloc - (b)->len)
-#define BSTR_AVAIL_SLICE(b)((struct bstr_slice_s){(b)->buf + (b)->len, BSTR_AVIL(b)})
+#define BSTR_AVIL(b) ((b).alloc - (b).len)
+#define BSTR_AVAIL_SLICE(b)((struct bstr_slice_s){(b).buf + (b).len, BSTR_AVIL(b)})
 
 #define BSTR_SLICE_EMPTY(b) ((b).len == 0 || (b).buf == NULL)
 #define BSTR_IS_EMPTY(b) ((b).buff == NULL)

@@ -247,7 +247,7 @@ bool bstrcatfmt(struct bstr_s* s, char const *fmt, ...) {
         long long num;
 
         /* Make sure there is always space for at least 1 char. */
-        if (BSTR_AVIL(s)==0) {
+        if (BSTR_AVIL(*s)==0) {
             if(!bstrMakeRoomFor(s,1))
                 return false;
         }
@@ -293,7 +293,7 @@ bool bstrcatfmt(struct bstr_s* s, char const *fmt, ...) {
                     if(!bstrMakeRoomFor(s, BSTR_LLSTR_SIZE))
                       return false;
                 }
-                const int len = bstrfmtll(BSTR_AVAIL_SLICE(s), num);
+                const int len = bstrfmtll(BSTR_AVAIL_SLICE(*s), num);
                 if(len == -1)
                   return false;
                 s->len += len;
@@ -316,7 +316,7 @@ bool bstrcatfmt(struct bstr_s* s, char const *fmt, ...) {
                     if(!bstrMakeRoomFor(s, BSTR_LLSTR_SIZE))
                       return false;
                 }
-                const int len = bstrfmtull(BSTR_AVAIL_SLICE(s),unum);
+                const int len = bstrfmtull(BSTR_AVAIL_SLICE(*s),unum);
                 if(len == -1)
                   return false;
                 s->len += len;
@@ -520,11 +520,11 @@ struct bstr_const_slice_s bstrSplitItr(struct bstr_split_iterable_s* iterable) {
 
   const int offset = bstrIndexOfOffset(BSTR_TO_CONSTSLICE((iterable->buffer)), iterable->cursor, iterable->delim);
   if(offset == -1) {
-    struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(&(iterable->buffer), iterable->cursor, iterable->buffer.len);
+    struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(iterable->buffer, iterable->cursor, iterable->buffer.len);
     iterable->cursor = iterable->buffer.len; // move the cursor to the very end of the buffer
     return res;
   }
-  struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(&(iterable->buffer), iterable->cursor, offset);
+  struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB((iterable->buffer), iterable->cursor, offset);
   iterable->cursor = offset + iterable->delim.len; 
   return res;
 }
@@ -535,14 +535,14 @@ struct bstr_const_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s* ite
   if(iterable->cursor == 0) 
     return (struct bstr_const_slice_s){0};
   
-  const int offset = bstrLastIndexOfOffset(BSTR_TO_CONSTSLICE((iterable->buffer)), iterable->cursor - 1, iterable->delim);
+  const int offset = bstrLastIndexOfOffset(BSTR_TO_CONSTSLICE(iterable->buffer), iterable->cursor - 1, iterable->delim);
   if(offset == -1) {
-    struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(&(iterable->buffer), 0, iterable->cursor);
+    struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(iterable->buffer, 0, iterable->cursor);
     iterable->cursor = 0; // move the cursor to the very beginning of the buffer
     return res;
   }
   assert(offset + iterable->delim.len <= iterable->cursor);
-  struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(&(iterable->buffer), offset + iterable->delim.len, iterable->cursor);
+  struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(iterable->buffer, offset + iterable->delim.len, iterable->cursor);
   iterable->cursor = offset; 
   return res;
 }

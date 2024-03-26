@@ -1,6 +1,4 @@
 #include "bstr.h"
-#include "bstr.c"
-
 #include "utest.h"
 
 UTEST(bstr, bstrCaselessCompare ) {
@@ -60,24 +58,24 @@ UTEST(bstr, bstrIterateRev) {
       .buffer = buf,
       .cursor = buf.len 
   };
-  struct bstr_const_slice_s s = {};
+  struct bstr_const_slice_s s = {0};
   s = bstrSplitIterReverse(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 0);
   EXPECT_EQ(bstrEq(CSTR_TO_CONSTSLICE("five"), s), 1);
   s = bstrSplitIterReverse(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 0);
   EXPECT_EQ(bstrEq(CSTR_TO_CONSTSLICE("four"), s), 1);
   s = bstrSplitIterReverse(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 0);
   EXPECT_EQ(bstrEq(CSTR_TO_CONSTSLICE("three"), s), 1);
   s = bstrSplitIterReverse(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 0);
   EXPECT_EQ(bstrEq(CSTR_TO_CONSTSLICE("two"), s), 1);
   s = bstrSplitIterReverse(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 0);
   EXPECT_EQ(bstrEq(CSTR_TO_CONSTSLICE("one"), s), 1);
   s = bstrSplitIterReverse(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 0);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 1);
 
 }
 
@@ -99,24 +97,24 @@ UTEST(bstr, bstrIterate) {
       .buffer = CSTR_TO_CONSTSLICE("one two three four five"),
       .cursor = 0
   };
-  struct bstr_const_slice_s s = {};
+  struct bstr_const_slice_s s = {0};
   s = bstrSplitItr(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 0);
   EXPECT_EQ(bstrEq(CSTR_TO_CONSTSLICE("one"), s), 1);
   s = bstrSplitItr(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 0);
   EXPECT_EQ(bstrEq(CSTR_TO_CONSTSLICE("two"), s), 1);
   s = bstrSplitItr(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 0);
   EXPECT_EQ(bstrEq(CSTR_TO_CONSTSLICE("three"), s), 1);
   s = bstrSplitItr(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 0);
   EXPECT_EQ(bstrEq(CSTR_TO_CONSTSLICE("four"), s), 1);
   s = bstrSplitItr(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 1);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 0);
   EXPECT_EQ(bstrEq(CSTR_TO_CONSTSLICE("five"), s), 1);
   s = bstrSplitItr(&iterable);
-  EXPECT_EQ(bstrSliceValid(s), 0);
+  EXPECT_EQ(BSTR_SLICE_EMPTY(s), 1);
 }
 
 UTEST(bstr, bstrfmtWriteLongLong) {
@@ -140,7 +138,7 @@ UTEST(bstr, bstrCaselessEq) {
 }
 
 UTEST(bstr, bstrCatJoin) {
-  struct bstr_s buf ={};
+  struct bstr_s buf ={0};
   struct bstr_const_slice_s slices[] = {
     CSTR_TO_CONSTSLICE("one"),
     CSTR_TO_CONSTSLICE("two"),
@@ -153,7 +151,7 @@ UTEST(bstr, bstrCatJoin) {
 }
 
 UTEST(bstr, bstrCatJoinCstr) {
-  struct bstr_s buf ={};
+  struct bstr_s buf ={0};
   char* slices[] = {
     "one",
     "two",
@@ -167,7 +165,7 @@ UTEST(bstr, bstrCatJoinCstr) {
 
 
 UTEST(bstr, appendSlice) {
-  struct bstr_s buf = {};
+  struct bstr_s buf = {0};
   bstrAssign(&buf, CSTR_TO_CONSTSLICE("Hello"));
   EXPECT_EQ(bstrAppendSlice(&buf, CSTR_TO_CONSTSLICE(" world")), true);
   EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("Hello world")), true);
@@ -212,7 +210,7 @@ UTEST(bstr, bstrcatfmt) {
 }
 
 UTEST(bstr, updateLen) {
-  struct bstr_s buf = {};
+  struct bstr_s buf = {0};
   bstrAssign(&buf, CSTR_TO_CONSTSLICE("Hello World"));
   buf.buf[5] = '\0';
   bstrUpdateLen(&buf);
@@ -224,7 +222,7 @@ UTEST(bstr, updateLen) {
 }
 
 UTEST(bstr, bstrAssign) {
-  struct bstr_s buf = {};
+  struct bstr_s buf = {0};
   {
     bstrAssign(&buf, CSTR_TO_CONSTSLICE("Hello World"));
     EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("Hello World")), true);
@@ -256,13 +254,12 @@ UTEST(bstr, bstrLeftTrim) {
 
 UTEST(bstr, bstrTrim) {
   {
-    struct bstr_s buf = {};
+    struct bstr_s buf = {0};
     bstrAssign(&buf, CSTR_TO_CONSTSLICE("  Hello World "));
     bstrAssign(&buf, bstrTrim(BSTR_TO_CONSTSLICE(buf)));
     EXPECT_EQ(bstrEq(BSTR_TO_CONSTSLICE(buf), CSTR_TO_CONSTSLICE("Hello World")), true);
     bstrFree(&buf);
   }
-
 
   EXPECT_EQ(bstrEq(bstrTrim(CSTR_TO_CONSTSLICE("Hello world  ")), CSTR_TO_CONSTSLICE("Hello world")), true);
   EXPECT_EQ(bstrEq(bstrTrim(CSTR_TO_CONSTSLICE("  \t Hello world  ")), CSTR_TO_CONSTSLICE("Hello world")), true);

@@ -47,6 +47,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 #define BSTR_LLSTR_SIZE 21
 #define BSTR_LSTR_SIZE 16 
@@ -76,8 +77,6 @@ struct bstr_slice_s {
 
 #define BSTR_SLICE_EMPTY(b) ((b).len == 0 || (b).buf == NULL)
 #define BSTR_IS_EMPTY(b) ((b).buff == NULL)
-
-inline int bstrSliceValid(const struct bstr_const_slice_s slice);
 
 /**
  * Creates a string from a slice 
@@ -127,6 +126,15 @@ bool bstrAppendChar(struct bstr_s* str, char b);
 bool bstrInsertChar(struct bstr_s* str, size_t i, char b);
 bool bstrInsertSlice(struct bstr_s* str, size_t i, const struct bstr_const_slice_s slice);
 bool bstrAssign(struct bstr_s* str, struct bstr_const_slice_s slice);
+/**
+ * resizes the allocation of the bstr will truncate if the allocation is less then the size 
+ *
+ * the buffer is trimmed down to the length of the string.
+ *
+ * If the buffer fails to reallocate then false is returned
+ **/
+bool bstrResize(struct bstr_s* str, size_t len);
+
 
 struct bstr_split_iterable_s {
   const struct bstr_const_slice_s buffer; // the buffer to iterrate over
@@ -314,7 +322,4 @@ int bstrLastIndexOfCaselessOffset(const struct bstr_const_slice_s haystack, size
 int bstrIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s characters);
 int bstrLastIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s characters);
 
-int bstrSliceValid(const struct bstr_const_slice_s slice) {
-  return slice.buf != NULL;
-}
 #endif

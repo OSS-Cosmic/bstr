@@ -591,7 +591,7 @@ same_str:
   return 0;
 }
 
-bool bstrCaselessEq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1) {
+bool bstrCaselessEqual (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1) {
   if(b0.len != b1.len) 
     return 0;
 
@@ -605,7 +605,7 @@ bool bstrCaselessEq (const struct bstr_const_slice_s b0, const struct bstr_const
   return 1;
 }
 
-bool bstreq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1) {
+bool bstrEqual (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1) {
   //printf("EQ: \"%.*s\" -- \"%.*s\"\n", (int)b0.len, b0.buf, (int)b1.len, b1.buf);
   if(b0.len != b1.len) 
     return 0;
@@ -648,7 +648,7 @@ static inline int bstrIndexOfCmp(const struct bstr_const_slice_s haystack, size_
 
   size_t i = offset;
   while(i <= haystack.len - needle.len) {
-    if (bstreq((struct bstr_const_slice_s){
+    if (bstrEqual((struct bstr_const_slice_s){
       .buf = haystack.buf + i,
       .len = needle.len
     }, needle)) {
@@ -712,39 +712,39 @@ static inline int bstrLastIndexOfCmp(const struct bstr_const_slice_s haystack, s
 
 int bstrIndexOfOffset(const struct bstr_const_slice_s haystack, size_t offset,
                       const struct bstr_const_slice_s needle) {
-  return bstrIndexOfCmp(haystack, offset, needle, bstreq);
+  return bstrIndexOfCmp(haystack, offset, needle, bstrEqual);
 }
 
 int bstrIndexOf(const struct bstr_const_slice_s haystack,
                 const struct bstr_const_slice_s needle) {
-  return bstrIndexOfCmp(haystack, 0, needle, bstreq);
+  return bstrIndexOfCmp(haystack, 0, needle, bstrEqual);
 }
 
 int bstrIndexOfCaseless(const struct bstr_const_slice_s haystack,
                         const struct bstr_const_slice_s needle) {
-  return bstrIndexOfCmp(haystack, 0, needle, bstrCaselessEq);
+  return bstrIndexOfCmp(haystack, 0, needle, bstrCaselessEqual);
 }
 
 int bstrIndexOfCaselessOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle) {
-  return bstrIndexOfCmp(haystack, offset, needle, bstrCaselessEq);
+  return bstrIndexOfCmp(haystack, offset, needle, bstrCaselessEqual);
 }
 
 int bstrLastIndexOf(const struct bstr_const_slice_s haystack,
                     const struct bstr_const_slice_s needle) {
-  return bstrLastIndexOfCmp(haystack, haystack.len, needle, bstreq);
+  return bstrLastIndexOfCmp(haystack, haystack.len, needle, bstrEqual);
 }
 
 int bstrLastIndexOfOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle) {
-  return bstrLastIndexOfCmp(haystack, offset, needle, bstreq);
+  return bstrLastIndexOfCmp(haystack, offset, needle, bstrEqual);
 }
 
 int bstrLastIndexOfCaseless(const struct bstr_const_slice_s haystack,
                             const struct bstr_const_slice_s needle) {
-  return bstrLastIndexOfCmp(haystack, haystack.len, needle, bstrCaselessEq);
+  return bstrLastIndexOfCmp(haystack, haystack.len, needle, bstrCaselessEqual);
 }
 
 int bstrLastIndexOfCaselessOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle) {
-  return bstrLastIndexOfCmp(haystack, offset, needle, bstrCaselessEq);
+  return bstrLastIndexOfCmp(haystack, offset, needle, bstrCaselessEqual);
 }
 
 int bstrIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s characters) {

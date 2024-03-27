@@ -45,10 +45,10 @@ UTEST(bstr, bstrLastIndexOf) {
 }
 
 UTEST(bstr, bstrEq) {
-  EXPECT_EQ(bstreq(bstr_const_ref("Hello world"), bstr_const_ref("Hello world")), 1);
-  EXPECT_EQ(bstreq(bstr_const_ref("Helloworld"), bstr_const_ref("Hello world")), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("Hello World"), bstr_const_ref("Hello world")), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("Hello"), bstr_const_ref("Hello ")), 0);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("Hello world"), bstr_const_ref("Hello world")), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("Helloworld"), bstr_const_ref("Hello world")), 0);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("Hello World"), bstr_const_ref("Hello world")), 0);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("Hello"), bstr_const_ref("Hello ")), 0);
 }
 
 UTEST(bstr, bstrDuplicate) {
@@ -70,19 +70,19 @@ UTEST(bstr, bstrIterateRev) {
   struct bstr_const_slice_s s = {0};
   s = bstrSplitRevIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("five"), s), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("five"), s), 1);
   s = bstrSplitRevIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("four"), s), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("four"), s), 1);
   s = bstrSplitRevIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("three"), s), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("three"), s), 1);
   s = bstrSplitRevIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("two"), s), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("two"), s), 1);
   s = bstrSplitRevIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("one"), s), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("one"), s), 1);
   s = bstrSplitRevIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 1);
 
@@ -109,19 +109,19 @@ UTEST(bstr, bstrIterate) {
   struct bstr_const_slice_s s = {0};
   s = bstrSplitIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("one"), s), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("one"), s), 1);
   s = bstrSplitIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("two"), s), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("two"), s), 1);
   s = bstrSplitIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("three"), s), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("three"), s), 1);
   s = bstrSplitIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("four"), s), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("four"), s), 1);
   s = bstrSplitIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 0);
-  EXPECT_EQ(bstreq(bstr_const_ref("five"), s), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("five"), s), 1);
   s = bstrSplitIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 1);
 }
@@ -133,17 +133,17 @@ UTEST(bstr, bstrfmtWriteLongLong) {
     .len = BSTR_LLSTR_SIZE
   }, 12481);
   EXPECT_EQ(len, 5);
-  EXPECT_EQ(bstreq(bstr_const_ref("12481"), (struct bstr_const_slice_s){
+  EXPECT_EQ(bstrEqual(bstr_const_ref("12481"), (struct bstr_const_slice_s){
     .buf = test_buffer,
     .len = len
   }), true);
 }
 
 UTEST(bstr, bstrCaselessEq) {
-  EXPECT_EQ(bstrCaselessEq(bstr_const_ref("Hello world"), bstr_const_ref("Hello world")), 1);
-  EXPECT_EQ(bstrCaselessEq(bstr_const_ref("Helloworld"), bstr_const_ref("Hello world")), 0);
-  EXPECT_EQ(bstrCaselessEq(bstr_const_ref("Hello World"), bstr_const_ref("Hello world")), 1);
-  EXPECT_EQ(bstrCaselessEq(bstr_const_ref("Hello"), bstr_const_ref("Hello ")), 0);
+  EXPECT_EQ(bstrCaselessEqual(bstr_const_ref("Hello world"), bstr_const_ref("Hello world")), 1);
+  EXPECT_EQ(bstrCaselessEqual(bstr_const_ref("Helloworld"), bstr_const_ref("Hello world")), 0);
+  EXPECT_EQ(bstrCaselessEqual(bstr_const_ref("Hello World"), bstr_const_ref("Hello world")), 1);
+  EXPECT_EQ(bstrCaselessEqual(bstr_const_ref("Hello"), bstr_const_ref("Hello ")), 0);
 }
 
 UTEST(bstr, bstrCatJoin) {
@@ -155,7 +155,7 @@ UTEST(bstr, bstrCatJoin) {
     bstr_const_ref("four"),
   };
   EXPECT_EQ(bstrcatjoin(&buf, slices, 4, bstr_const_ref(" ")), true);
-  EXPECT_EQ(bstreq(bstr_const_ref(buf), bstr_const_ref("one two three four")), true);
+  EXPECT_EQ(bstrEqual(bstr_const_ref(buf), bstr_const_ref("one two three four")), true);
   bstrfree(&buf);
 }
 
@@ -168,7 +168,7 @@ UTEST(bstr, bstrCatJoinCstr) {
     "four",
   };
   EXPECT_EQ(bstrCatJoinCStr(&buf, slices, 4, bstr_const_ref(" ")), true);
-  EXPECT_EQ(bstreq(bstr_const_ref(buf), bstr_const_ref("one two three four")), true);
+  EXPECT_EQ(bstrEqual(bstr_const_ref(buf), bstr_const_ref("one two three four")), true);
   bstrfree(&buf);
 }
 
@@ -177,25 +177,25 @@ UTEST(bstr, appendSlice) {
   struct bstr_s buf = {0};
   bstrAssign(&buf, bstr_const_ref("Hello"));
   EXPECT_EQ(bstrAppendSlice(&buf, bstr_const_ref(" world")), true);
-  EXPECT_EQ(bstreq(bstr_const_ref(buf), bstr_const_ref("Hello world")), true);
+  EXPECT_EQ(bstrEqual(bstr_const_ref(buf), bstr_const_ref("Hello world")), true);
   bstrfree(&buf);
 }
 
 UTEST(bstr, bstrcatprintf) {
   struct bstr_s buf = {0};
   EXPECT_EQ(bstrcatprintf(&buf, "Hello %s", "world"), true);
-  EXPECT_EQ(bstreq(bstr_const_ref(buf), bstr_const_ref("Hello world")), true);
+  EXPECT_EQ(bstrEqual(bstr_const_ref(buf), bstr_const_ref("Hello world")), true);
 
   bstrsetlen(&buf, 0);
   EXPECT_EQ(bstrcatprintf(&buf, "%d", 123), true);
-  EXPECT_EQ(bstreq(bstr_const_ref(buf), bstr_const_ref("123")), true);
+  EXPECT_EQ(bstrEqual(bstr_const_ref(buf), bstr_const_ref("123")), true);
   
   EXPECT_EQ(bstrcatprintf(&buf, " %lu", 156), true);
-  EXPECT_EQ(bstreq(bstr_const_ref(buf), bstr_const_ref("123 156")), true);
+  EXPECT_EQ(bstrEqual(bstr_const_ref(buf), bstr_const_ref("123 156")), true);
 
   bstrsetlen(&buf, 0);
   EXPECT_EQ(bstrcatprintf(&buf,"a%cb",0), true);
-  EXPECT_EQ(bstreq(bstr_const_ref(buf), (struct bstr_const_slice_s){.buf = "a\0""b", .len = 3}), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref(buf), (struct bstr_const_slice_s){.buf = "a\0""b", .len = 3}), 1);
   bstrfree(&buf);
 }
 
@@ -203,17 +203,17 @@ UTEST(bstr, bstrcatfmt) {
    struct bstr_s s = {0};
    {
      bstrcatfmt(&s, "%S\n", bstr_const_ref("Hello World"));
-     EXPECT_EQ(bstreq(bstr_const_ref(s), bstr_const_ref("Hello World\n")), true );
+     EXPECT_EQ(bstrEqual(bstr_const_ref(s), bstr_const_ref("Hello World\n")), true );
      bstr_clear(&s);
    }
    {
      bstrcatfmt(&s, "%i\n", 125);
-     EXPECT_EQ(bstreq(bstr_const_ref(s), bstr_const_ref("125\n")), true );
+     EXPECT_EQ(bstrEqual(bstr_const_ref(s), bstr_const_ref("125\n")), true );
      bstr_clear(&s);
    }
    {
      bstrcatfmt(&s, "%i\n", -125);
-     EXPECT_EQ(bstreq(bstr_const_ref(s), bstr_const_ref("-125\n")), true );
+     EXPECT_EQ(bstrEqual(bstr_const_ref(s), bstr_const_ref("-125\n")), true );
      bstr_clear(&s);
    }
    bstrfree(&s);
@@ -225,7 +225,7 @@ UTEST(bstr, updateLen) {
   buf.buf[5] = '\0';
   bstrUpdateLen(&buf);
  
-  EXPECT_EQ(bstreq(bstr_const_ref(buf), bstr_const_ref("Hello")), true );
+  EXPECT_EQ(bstrEqual(bstr_const_ref(buf), bstr_const_ref("Hello")), true );
   EXPECT_EQ(buf.len, 5);
 
   bstrfree(&buf);
@@ -235,31 +235,31 @@ UTEST(bstr, bstrAssign) {
   struct bstr_s buf = {0};
   {
     bstrAssign(&buf, bstr_const_ref("Hello World"));
-    EXPECT_EQ(bstreq(bstr_const_ref(buf), bstr_const_ref("Hello World")), true);
+    EXPECT_EQ(bstrEqual(bstr_const_ref(buf), bstr_const_ref("Hello World")), true);
   }
   {
     bstrAssign(&buf, bstrtrim(bstr_const_ref("   Hello World   ")));
-    EXPECT_EQ(bstreq(bstr_const_ref(buf), bstr_const_ref("Hello World")), true);
+    EXPECT_EQ(bstrEqual(bstr_const_ref(buf), bstr_const_ref("Hello World")), true);
   }
   bstrfree(&buf);
 
 }
 
 UTEST(bstr, bstr_rtrim) {
-  EXPECT_EQ(bstreq(bstrrtrim(bstr_const_ref("Hello world  ")), bstr_const_ref("Hello world")), true);
-  EXPECT_EQ(bstreq(bstrrtrim(bstr_const_ref("  Hello world  ")), bstr_const_ref("  Hello world")), true);
-  EXPECT_EQ(bstreq(bstrrtrim(bstr_const_ref("  ")), bstr_const_ref("")), true);
-  EXPECT_EQ(bstreq(bstrrtrim(bstr_const_ref(" ")), bstr_const_ref("")), true);
-  EXPECT_EQ(bstreq(bstrrtrim(bstr_const_ref("\n")), bstr_const_ref("")), true);
-  EXPECT_EQ(bstreq(bstrrtrim(bstr_const_ref("\t")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrrtrim(bstr_const_ref("Hello world  ")), bstr_const_ref("Hello world")), true);
+  EXPECT_EQ(bstrEqual(bstrrtrim(bstr_const_ref("  Hello world  ")), bstr_const_ref("  Hello world")), true);
+  EXPECT_EQ(bstrEqual(bstrrtrim(bstr_const_ref("  ")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrrtrim(bstr_const_ref(" ")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrrtrim(bstr_const_ref("\n")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrrtrim(bstr_const_ref("\t")), bstr_const_ref("")), true);
 }
 
 UTEST(bstr, bstr_ltrim) {
-  EXPECT_EQ(bstreq(bstrltrim(bstr_const_ref("Hello world  ")), bstr_const_ref("Hello world  ")), true);
-  EXPECT_EQ(bstreq(bstrltrim(bstr_const_ref("  ")), bstr_const_ref("")), true);
-  EXPECT_EQ(bstreq(bstrltrim(bstr_const_ref(" ")), bstr_const_ref("")), true);
-  EXPECT_EQ(bstreq(bstrltrim(bstr_const_ref("\n")), bstr_const_ref("")), true);
-  EXPECT_EQ(bstreq(bstrltrim(bstr_const_ref("\t")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrltrim(bstr_const_ref("Hello world  ")), bstr_const_ref("Hello world  ")), true);
+  EXPECT_EQ(bstrEqual(bstrltrim(bstr_const_ref("  ")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrltrim(bstr_const_ref(" ")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrltrim(bstr_const_ref("\n")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrltrim(bstr_const_ref("\t")), bstr_const_ref("")), true);
 }
 
 UTEST(bstr, bstrTrim) {
@@ -267,15 +267,15 @@ UTEST(bstr, bstrTrim) {
     struct bstr_s buf = {0};
     bstrAssign(&buf, bstr_const_ref("  Hello World "));
     bstrAssign(&buf, bstrtrim(bstr_const_ref(buf)));
-    EXPECT_EQ(bstreq(bstr_const_ref(buf), bstr_const_ref("Hello World")), true);
+    EXPECT_EQ(bstrEqual(bstr_const_ref(buf), bstr_const_ref("Hello World")), true);
     bstrfree(&buf);
   }
 
-  EXPECT_EQ(bstreq(bstrtrim(bstr_const_ref("Hello world  ")), bstr_const_ref("Hello world")), true);
-  EXPECT_EQ(bstreq(bstrtrim(bstr_const_ref("  \t Hello world  ")), bstr_const_ref("Hello world")), true);
-  EXPECT_EQ(bstreq(bstrtrim(bstr_const_ref("  ")), bstr_const_ref("")), true);
-  EXPECT_EQ(bstreq(bstrtrim(bstr_const_ref(" ")), bstr_const_ref("")), true);
-  EXPECT_EQ(bstreq(bstrtrim(bstr_const_ref("\n")), bstr_const_ref("")), true);
-  EXPECT_EQ(bstreq(bstrtrim(bstr_const_ref("\t")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrtrim(bstr_const_ref("Hello world  ")), bstr_const_ref("Hello world")), true);
+  EXPECT_EQ(bstrEqual(bstrtrim(bstr_const_ref("  \t Hello world  ")), bstr_const_ref("Hello world")), true);
+  EXPECT_EQ(bstrEqual(bstrtrim(bstr_const_ref("  ")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrtrim(bstr_const_ref(" ")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrtrim(bstr_const_ref("\n")), bstr_const_ref("")), true);
+  EXPECT_EQ(bstrEqual(bstrtrim(bstr_const_ref("\t")), bstr_const_ref("")), true);
 }
 UTEST_MAIN()

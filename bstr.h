@@ -327,11 +327,11 @@ int bstrCompare  (const struct bstr_const_slice_s b0, const struct bstr_const_sl
 /**
 *  Test if two strings are equal ignores case true else false.  
 **/
-bool bstrCaselessEq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1);
+bool bstrCaselessEqual (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1);
 /**
 *  Test if two strings are equal return true else false.  
 **/
-bool bstreq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1);
+bool bstrEqual (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1);
 
 int bstrIndexOfOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle);
 int bstrIndexOf(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s needle);

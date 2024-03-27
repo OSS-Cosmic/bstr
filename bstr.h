@@ -36,8 +36,8 @@
 // this is a modified string library that implements features from both bstring and sds
 
 
-#ifndef _BSTR_H_
-#define _BSTR_H_ 1
+#ifndef BSTR_H_INCLUDED
+#define BSTR_H_INCLUDED
 
 #include <stdio.h>
 #include <limits.h>
@@ -58,6 +58,7 @@ struct bstr_s {
   char* buf;
 };
 
+
 // a const slice
 struct bstr_const_slice_s {
   const char * buf;
@@ -67,27 +68,51 @@ struct bstr_slice_s {
   char * buf;
   size_t len;
 }; 
-#define BSTR_TO_CONSTSLICE(a) (struct bstr_const_slice_s){(a).buf, (a).len}
-#define CSTR_TO_CONSTSLICE(c) (struct bstr_const_slice_s){c, strlen(c)}
-#define BSTR_CONSTSLICE_SUB(s, b, e) (struct bstr_const_slice_s){(s).buf + (b), (e) - (b)} 
-#define BSTR_TO_SLICE(a) (struct bstr_slice_s){(a).buf, (a).len}
-#define CSTR_TO_SLICE(c) (struct bstr_slice_s){(const char*)(c), strlen(c)}
-#define BSTR_AVIL(b) ((b).alloc - (b).len)
-#define BSTR_AVAIL_SLICE(b)((struct bstr_slice_s){(b).buf + (b).len, BSTR_AVIL(b)})
 
-#define BSTR_SLICE_EMPTY(b) ((b).len == 0 || (b).buf == NULL)
-#define BSTR_IS_EMPTY(b) ((b).buff == NULL)
+static inline struct bstr_const_slice_s cstr_to_const_slice(const char* c) { return (struct bstr_const_slice_s){c, strlen(c)}; }
+static inline struct bstr_const_slice_s bstr_to_const_slice(struct bstr_s str) { return (struct bstr_const_slice_s){str.buf, str.len};}
+static inline struct bstr_const_slice_s bstr_slice_to_const_slice(struct bstr_slice_s slice){return (struct bstr_const_slice_s){slice.buf, slice.len};}
 
+static inline struct bstr_slice_s cstr_to_slice(char *c) { return (struct bstr_slice_s){c, strlen(c)}; }
+static inline struct bstr_slice_s bstr_to_slice(struct bstr_s str) { return (struct bstr_slice_s){str.buf, str.len}; }
+
+static inline struct bstr_slice_s bstr_sub_slice(struct bstr_slice_s slice, size_t a, size_t b) {
+  assert((b - a) <= slice.len);
+  return (struct bstr_slice_s){slice.buf + a, b - a};
+}
+static inline struct bstr_const_slice_s bstr_sub_const_slice(struct bstr_const_slice_s slice, size_t a, size_t b) {
+  assert((b - a) <= slice.len);
+  return (struct bstr_const_slice_s){slice.buf + a, b - a};
+}
+
+#define bstr_avail_len(b) ((b).alloc - (b).len)
+#define bstr_avail_slice(b)((struct bstr_slice_s){(b).buf + (b).len, bstr_avail_len(b)})
+#define bstr_is_empty(b) ((b).buf == NULL || (b).len == 0)
+#define bstr_const_ref(T) \
+    _Generic((T), \
+      struct bstr_s: bstr_to_const_slice, \
+      struct bstr_slice_s: bstr_slice_to_const_slice, \
+      char*: cstr_to_const_slice)(T)
+
+#define bstr_ref(T) \
+    _Generic((T), \
+      struct bstr_s: bstr_to_slice, \
+      char*: cstr_to_slice)(T)
+
+#define bstr_sub(T,a,b) \
+    _Generic((T), \
+      struct bstr_const_slice_s: bstr_sub_const_slice, \
+      struct bstr_slice_s: bstr_sub_slice)(T, a, b)
 /**
  * Creates a string from a slice 
  **/
-void bstrFree(struct bstr_s* str);
-void bstrToUpper(struct bstr_slice_s slice);
-void bstrToLower(struct bstr_slice_s slice);
+void bstrfree(struct bstr_s* str);
+void bstrupper(struct bstr_slice_s slice);
+void bstrlower(struct bstr_slice_s slice);
 
-struct bstr_const_slice_s bstrTrim(struct bstr_const_slice_s slice);
-struct bstr_const_slice_s bstrRightTrim(struct bstr_const_slice_s slice);
-struct bstr_const_slice_s bstrLeftTrim(struct bstr_const_slice_s slice);
+struct bstr_const_slice_s bstrtrim(struct bstr_const_slice_s slice);
+struct bstr_const_slice_s bstrrtrim(struct bstr_const_slice_s slice);
+struct bstr_const_slice_s bstrltrim(struct bstr_const_slice_s slice);
 
 /* Enlarge the free space at the end of the bstr string so that the caller
  * is sure that after calling this function can overwrite up to addlen
@@ -97,21 +122,29 @@ struct bstr_const_slice_s bstrLeftTrim(struct bstr_const_slice_s slice);
  * but only the free buffer space we have. */
 bool bstrMakeRoomFor(struct bstr_s* str, size_t addlen);
 /* 
- * set the lenght of the buffer to the length specified. this
- * will also trigger a realloction if the lenght is greater then the size
+ * set the length of the buffer to the length specified. this
+ * will also trigger a realloction if the length is greater then the size
  * reserved. 
  *
  * Note: this does not set the null terminator for the string.
  * this will corrupt slices that are referencing a slice out of this buffer.
  **/
-bool bstrSetLen(struct bstr_s* str, size_t len);
+bool bstrsetlen(struct bstr_s* str, size_t len);
 /**
  * set the amount of memory reserved by the bstr. will only ever increase
  * the size of the string 
  * 
  * A reserved string can be assigned with bstrAssign
  **/
-bool bstrSetReserve(struct bstr_s* str, size_t reserveLen); 
+bool bstrsetresv(struct bstr_s* str, size_t reserveLen); 
+
+/** 
+ * Modify an bstr string in-place to make it empty (zero length) set null terminator.
+ * However all the existing buffer is not discarded but set as free space
+ * so that next append operations will not require allocations up to the
+ * number of bytes previously available. 
+ **/
+bool bstr_clear(struct bstr_s* str);
 
 /**
  * takes a bstr and duplicates the underlying buffer.
@@ -120,11 +153,11 @@ bool bstrSetReserve(struct bstr_s* str, size_t reserveLen);
  *
  * if the buffer fails to allocate then BSTR_IS_EMPTY(b) will be true
  **/
-struct bstr_s bstrDuplicate(const struct bstr_s* str);
+struct bstr_s bstrDup(const struct bstr_s* str);
 bool bstrAppendSlice(struct bstr_s* str, const struct bstr_const_slice_s slice);
 bool bstrAppendChar(struct bstr_s* str, char b);
 bool bstrInsertChar(struct bstr_s* str, size_t i, char b);
-bool bstrInsertSlice(struct bstr_s* str, size_t i, const struct bstr_const_slice_s slice);
+bool bstrInserSlice(struct bstr_s* str, size_t i, const struct bstr_const_slice_s slice);
 bool bstrAssign(struct bstr_s* str, struct bstr_const_slice_s slice);
 /**
  * resizes the allocation of the bstr will truncate if the allocation is less then the size 
@@ -133,7 +166,7 @@ bool bstrAssign(struct bstr_s* str, struct bstr_const_slice_s slice);
  *
  * If the buffer fails to reallocate then false is returned
  **/
-bool bstrResize(struct bstr_s* str, size_t len);
+bool bstrresize(struct bstr_s* str, size_t len);
 
 
 struct bstr_split_iterable_s {
@@ -160,7 +193,7 @@ struct bstr_split_iterable_s {
  * }
  *
  **/
-struct bstr_const_slice_s bstrSplitItr(struct bstr_split_iterable_s*);
+struct bstr_const_slice_s bstrSplitIter(struct bstr_split_iterable_s*);
 
 /** 
  * splits a string using an iterator and returns a slice. a valid slice means there are 
@@ -182,13 +215,13 @@ struct bstr_const_slice_s bstrSplitItr(struct bstr_split_iterable_s*);
  * }
  *
  **/
-struct bstr_const_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s*);
+struct bstr_const_slice_s bstrSplitRevIter(struct bstr_split_iterable_s*);
 
 /* Set the bstr string length to the length as obtained with strlen(), so
  * considering as content only up to the first null term character.
  *
  * This function is useful when the bstr string has been changed where
- * the lenght is not correctly updated. using vsprintf for instance.
+ * the length is not correctly updated. using vsprintf for instance.
  *
  * After the call, slices are not valid if they reference this bstr 
  * 
@@ -199,18 +232,9 @@ struct bstr_const_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s*);
  *
  * The output will be "2", but if we comment out the call to bstrUpdateLen()
  * the output will be "6" as the string was modified but the logical length
- * remains 6 bytes. */
+ * remains 6 bytes. 
+ ** */
 bool bstrUpdateLen(struct bstr_s* str);
-
-
-/** 
- * Modify an bstr string in-place to make it empty (zero length) set null terminator.
- * However all the existing buffer is not discarded but set as free space
- * so that next append operations will not require allocations up to the
- * number of bytes previously available. 
- **/
-bool bstrClear(struct bstr_s* str);
-
 
 /* Append to the bstr string 's' a string obtained using printf-alike format
  * specifier.
@@ -251,12 +275,12 @@ bool bstrcatfmt(struct bstr_s*, char const *fmt, ...);
 
 
 /*
- * join an array of slices and cat them to bstr. faster since the lenghts are known ahead of time.
+ * join an array of slices and cat them to bstr. faster since the lengths are known ahead of time.
  * the buffer can be pre-reserved upfront.
  *
  * this modifies bstr so slices that reference this bstr can become invalid.
  **/
-bool bstrCatJoin(struct bstr_s*, struct bstr_const_slice_s* slices, size_t numSlices, struct bstr_const_slice_s sep);
+bool bstrcatjoin(struct bstr_s*, struct bstr_const_slice_s* slices, size_t numSlices, struct bstr_const_slice_s sep);
 /*
  * join an array of strings and cat them to bstr 
  **/
@@ -266,7 +290,7 @@ bool bstrCatJoinCStr(struct bstr_s*, char** argv, size_t argc, struct bstr_const
  * this should fit safetly within BSTR_LLSTR_SIZE. 
  *
  * the number of bytes written to the slice is returned else -1 if the 
- * value is unable to be written or the lenght of the slice is greater
+ * value is unable to be written or the length of the slice is greater
  *
  **/
 int bstrfmtll(struct bstr_slice_s slice, long long value); 
@@ -307,7 +331,7 @@ bool bstrCaselessEq (const struct bstr_const_slice_s b0, const struct bstr_const
 /**
 *  Test if two strings are equal return true else false.  
 **/
-bool bstrEq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1);
+bool bstreq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1);
 
 int bstrIndexOfOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle);
 int bstrIndexOf(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s needle);

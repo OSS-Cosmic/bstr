@@ -30,23 +30,23 @@ static inline bool charToDigit(uint8_t c , uint8_t base, uint8_t* res) {
 
 typedef bool(*bstr_cmp_handle) (struct bstr_const_slice_s s0, struct bstr_const_slice_s s1);
 
-void bstrToUpper(struct bstr_slice_s slice) {
+void bstrupper(struct bstr_slice_s slice) {
     for(size_t i = 0; i < slice.len; i++) {
         slice.buf[i] = toupper(slice.buf[i]);
     }
 }
-void bstrToLower(struct bstr_slice_s slice) {
+void bstrlower(struct bstr_slice_s slice) {
     for(size_t i = 0; i < slice.len; i++) {
         slice.buf[i] = tolower(slice.buf[i]);
     }
 }
 
-struct bstr_const_slice_s bstrTrim(struct bstr_const_slice_s slice) {
-  return bstrLeftTrim(bstrRightTrim(slice));
+struct bstr_const_slice_s bstrtrim(struct bstr_const_slice_s slice) {
+  return bstrltrim(bstrrtrim(slice));
 }
  
-struct bstr_const_slice_s bstrRightTrim(struct bstr_const_slice_s slice) {
-  if (BSTR_SLICE_EMPTY(slice))
+struct bstr_const_slice_s bstrrtrim(struct bstr_const_slice_s slice) {
+  if (bstr_is_empty(slice))
     return (struct bstr_const_slice_s){slice.buf, 0};
   for (size_t i = slice.len - 1;; i--) {
     if (!isspace(slice.buf[i])) {
@@ -57,8 +57,8 @@ struct bstr_const_slice_s bstrRightTrim(struct bstr_const_slice_s slice) {
   return (struct bstr_const_slice_s){slice.buf, 0};
 }
 
-struct bstr_const_slice_s bstrLeftTrim(struct bstr_const_slice_s slice) {
-  if (BSTR_SLICE_EMPTY(slice))
+struct bstr_const_slice_s bstrltrim(struct bstr_const_slice_s slice) {
+  if (bstr_is_empty(slice))
     return (struct bstr_const_slice_s){slice.buf, 0};
   for (size_t i = 0; i < slice.len; i++) {
     if (!isspace(slice.buf[i])) {
@@ -70,7 +70,7 @@ struct bstr_const_slice_s bstrLeftTrim(struct bstr_const_slice_s slice) {
 
 bool bstrAssign(struct bstr_s* str, struct bstr_const_slice_s slice) {
     // set the length of the string alloc will 
-    if(!bstrSetLen(str, slice.len))
+    if(!bstrsetlen(str, slice.len))
         return false;
     // slices can potentially overlap to the dest string 
     //    trimming and assigning
@@ -79,7 +79,7 @@ bool bstrAssign(struct bstr_s* str, struct bstr_const_slice_s slice) {
     return true;
 }
 
-bool bstrResize(struct bstr_s* str, size_t len) {
+bool bstrresize(struct bstr_s* str, size_t len) {
   str->buf = s_realloc(str->buf, len + 1);
   if (str->buf == NULL)
     return false;
@@ -91,7 +91,7 @@ bool bstrResize(struct bstr_s* str, size_t len) {
   return true;
 }
 
-bool bstrSetLen(struct bstr_s* str, size_t len) {
+bool bstrsetlen(struct bstr_s* str, size_t len) {
   if(len > str->alloc) {
     assert(len > str->len);
     size_t reqSize = len;
@@ -116,21 +116,21 @@ bool bstrUpdateLen(struct bstr_s* str) {
   return true; 
 }
 
-bool bstrClear(struct bstr_s* str) {
-  if(!bstrSetLen(str, 0))
+bool bstr_clear(struct bstr_s* str) {
+  if(!bstrsetlen(str, 0))
     return false;
   str->buf[0] = 0;
   return true;
 }
 
-void bstrFree(struct bstr_s* str) {
+void bstrfree(struct bstr_s* str) {
   s_free(str->buf);
   str->len = 0;
   str->alloc = 0;
   str->buf = NULL;
 }
 
-bool bstrSetReserve(struct bstr_s* str, size_t reserveLen) {
+bool bstrsetresv(struct bstr_s* str, size_t reserveLen) {
   if(reserveLen > str->alloc) {
     str->alloc = reserveLen;
     str->buf = s_realloc(str->buf, str->alloc);
@@ -140,7 +140,7 @@ bool bstrSetReserve(struct bstr_s* str, size_t reserveLen) {
   return true;
 }
 
-struct bstr_s bstrDuplicate(const struct bstr_s* str) {
+struct bstr_s bstrDup(const struct bstr_s* str) {
   assert(str);
   struct bstr_s result = {0};
   if(str->buf == NULL) 
@@ -247,7 +247,7 @@ bool bstrcatfmt(struct bstr_s* s, char const *fmt, ...) {
         long long num;
 
         /* Make sure there is always space for at least 1 char. */
-        if (BSTR_AVIL(*s)==0) {
+        if (bstr_avail_len(*s) == 0) {
             if(!bstrMakeRoomFor(s,1))
                 return false;
         }
@@ -293,7 +293,7 @@ bool bstrcatfmt(struct bstr_s* s, char const *fmt, ...) {
                     if(!bstrMakeRoomFor(s, BSTR_LLSTR_SIZE))
                       return false;
                 }
-                const int len = bstrfmtll(BSTR_AVAIL_SLICE(*s), num);
+                const int len = bstrfmtll(bstr_avail_slice(*s), num);
                 if(len == -1)
                   return false;
                 s->len += len;
@@ -316,7 +316,7 @@ bool bstrcatfmt(struct bstr_s* s, char const *fmt, ...) {
                     if(!bstrMakeRoomFor(s, BSTR_LLSTR_SIZE))
                       return false;
                 }
-                const int len = bstrfmtull(BSTR_AVAIL_SLICE(*s),unum);
+                const int len = bstrfmtull(bstr_avail_slice(*s),unum);
                 if(len == -1)
                   return false;
                 s->len += len;
@@ -474,7 +474,7 @@ bool bstrcatprintf(struct bstr_s* s, const char *fmt, ...) {
     return result;
 }
 
-bool bstrInsertSlice(struct bstr_s* str, size_t offset, const struct bstr_const_slice_s slice) {
+bool bstrInserSlice(struct bstr_s* str, size_t offset, const struct bstr_const_slice_s slice) {
   assert(offset <= str->len);
   if(!bstrMakeRoomFor(str, slice.len + 1))
     return false;
@@ -492,7 +492,7 @@ bool bstrAppendChar(struct bstr_s* str, char b) {
 }
 
 bool bstrInsertChar(struct bstr_s* str, size_t i, char b) {
-  return bstrInsertSlice(str, i, (struct bstr_const_slice_s){ .buf = &b, .len = 1});
+  return bstrInserSlice(str, i, (struct bstr_const_slice_s){ .buf = &b, .len = 1});
 }
 
 bool bstrMakeRoomFor(struct bstr_s* str, size_t addlen) {
@@ -512,37 +512,37 @@ bool bstrMakeRoomFor(struct bstr_s* str, size_t addlen) {
   return true;
 }
 
-struct bstr_const_slice_s bstrSplitItr(struct bstr_split_iterable_s* iterable) {
-  assert(!BSTR_SLICE_EMPTY(iterable->buffer));
-  assert(!BSTR_SLICE_EMPTY(iterable->delim));
+struct bstr_const_slice_s bstrSplitIter(struct bstr_split_iterable_s* iterable) {
+  assert(!bstr_is_empty(iterable->buffer));
+  assert(!bstr_is_empty(iterable->delim));
   if(iterable->cursor == iterable->buffer.len) 
     return (struct bstr_const_slice_s){0};
 
-  const int offset = bstrIndexOfOffset(BSTR_TO_CONSTSLICE((iterable->buffer)), iterable->cursor, iterable->delim);
+  const int offset = bstrIndexOfOffset(iterable->buffer, iterable->cursor, iterable->delim);
   if(offset == -1) {
-    struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(iterable->buffer, iterable->cursor, iterable->buffer.len);
+    struct bstr_const_slice_s res =  bstr_sub(iterable->buffer, iterable->cursor, iterable->buffer.len);
     iterable->cursor = iterable->buffer.len; // move the cursor to the very end of the buffer
     return res;
   }
-  struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB((iterable->buffer), iterable->cursor, offset);
+  struct bstr_const_slice_s res =  bstr_sub((iterable->buffer), iterable->cursor, offset);
   iterable->cursor = offset + iterable->delim.len; 
   return res;
 }
 
-struct bstr_const_slice_s bstrSplitIterReverse(struct bstr_split_iterable_s* iterable) {
-  assert(!BSTR_SLICE_EMPTY(iterable->buffer));
-  assert(!BSTR_SLICE_EMPTY(iterable->delim));
+struct bstr_const_slice_s bstrSplitRevIter(struct bstr_split_iterable_s* iterable) {
+  assert(!bstr_is_empty(iterable->buffer));
+  assert(!bstr_is_empty(iterable->delim));
   if(iterable->cursor == 0) 
     return (struct bstr_const_slice_s){0};
   
-  const int offset = bstrLastIndexOfOffset(BSTR_TO_CONSTSLICE(iterable->buffer), iterable->cursor - 1, iterable->delim);
+  const int offset = bstrLastIndexOfOffset(iterable->buffer, iterable->cursor - 1, iterable->delim);
   if(offset == -1) {
-    struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(iterable->buffer, 0, iterable->cursor);
+    struct bstr_const_slice_s res =  bstr_sub(iterable->buffer, 0, iterable->cursor);
     iterable->cursor = 0; // move the cursor to the very beginning of the buffer
     return res;
   }
   assert(offset + iterable->delim.len <= iterable->cursor);
-  struct bstr_const_slice_s res =  BSTR_CONSTSLICE_SUB(iterable->buffer, offset + iterable->delim.len, iterable->cursor);
+  struct bstr_const_slice_s res = bstr_sub(iterable->buffer, offset + iterable->delim.len, iterable->cursor);
   iterable->cursor = offset; 
   return res;
 }
@@ -605,7 +605,7 @@ bool bstrCaselessEq (const struct bstr_const_slice_s b0, const struct bstr_const
   return 1;
 }
 
-bool bstrEq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1) {
+bool bstreq (const struct bstr_const_slice_s b0, const struct bstr_const_slice_s b1) {
   //printf("EQ: \"%.*s\" -- \"%.*s\"\n", (int)b0.len, b0.buf, (int)b1.len, b1.buf);
   if(b0.len != b1.len) 
     return 0;
@@ -648,7 +648,7 @@ static inline int bstrIndexOfCmp(const struct bstr_const_slice_s haystack, size_
 
   size_t i = offset;
   while(i <= haystack.len - needle.len) {
-    if (bstrEq((struct bstr_const_slice_s){
+    if (bstreq((struct bstr_const_slice_s){
       .buf = haystack.buf + i,
       .len = needle.len
     }, needle)) {
@@ -712,12 +712,12 @@ static inline int bstrLastIndexOfCmp(const struct bstr_const_slice_s haystack, s
 
 int bstrIndexOfOffset(const struct bstr_const_slice_s haystack, size_t offset,
                       const struct bstr_const_slice_s needle) {
-  return bstrIndexOfCmp(haystack, offset, needle, bstrEq);
+  return bstrIndexOfCmp(haystack, offset, needle, bstreq);
 }
 
 int bstrIndexOf(const struct bstr_const_slice_s haystack,
                 const struct bstr_const_slice_s needle) {
-  return bstrIndexOfCmp(haystack, 0, needle, bstrEq);
+  return bstrIndexOfCmp(haystack, 0, needle, bstreq);
 }
 
 int bstrIndexOfCaseless(const struct bstr_const_slice_s haystack,
@@ -731,11 +731,11 @@ int bstrIndexOfCaselessOffset(const struct bstr_const_slice_s haystack, size_t o
 
 int bstrLastIndexOf(const struct bstr_const_slice_s haystack,
                     const struct bstr_const_slice_s needle) {
-  return bstrLastIndexOfCmp(haystack, haystack.len, needle, bstrEq);
+  return bstrLastIndexOfCmp(haystack, haystack.len, needle, bstreq);
 }
 
 int bstrLastIndexOfOffset(const struct bstr_const_slice_s haystack, size_t offset, const struct bstr_const_slice_s needle) {
-  return bstrLastIndexOfCmp(haystack, offset, needle, bstrEq);
+  return bstrLastIndexOfCmp(haystack, offset, needle, bstreq);
 }
 
 int bstrLastIndexOfCaseless(const struct bstr_const_slice_s haystack,
@@ -758,7 +758,7 @@ int bstrIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_c
   return false;
 }
 
-bool bstrCatJoin(struct bstr_s *str, struct bstr_const_slice_s *slices,
+bool bstrcatjoin(struct bstr_s *str, struct bstr_const_slice_s *slices,
                  size_t numSlices, struct bstr_const_slice_s sep) {
 {
     assert(str);
@@ -818,3 +818,5 @@ int bstrLastIndexOfAny(const struct bstr_const_slice_s haystack, const struct bs
   }
   return false;
 }
+
+

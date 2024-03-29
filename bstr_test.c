@@ -1,6 +1,7 @@
 #include "utest.h"
 
 #include "bstr.h"
+#include "bstr_utf8.h"
 
 UTEST(bstr, bstrCaselessCompare ) {
   EXPECT_EQ(bstrCaselessCompare(bstr_const_ref("test"), bstr_const_ref("TEST")), 0);
@@ -278,4 +279,64 @@ UTEST(bstr, bstrTrim) {
   EXPECT_EQ(bstrEqual(bstrtrim(bstr_const_ref("\n")), bstr_const_ref("")), true);
   EXPECT_EQ(bstrEqual(bstrtrim(bstr_const_ref("\t")), bstr_const_ref("")), true);
 }
+
+UTEST(bstr, bstrSliceToUtf8CodePoint) {
+  char smilyCat[] = {0xF0, 0x9F, 0x98, 0xBC};
+  EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
+    .len = sizeof(smilyCat),
+    .buf = smilyCat
+  }, 0), 0x0001f63c);
+  
+  char charU[] = {'U'};
+  EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
+    .len = sizeof(charU),
+    .buf = charU 
+  }, 0), 'U');
+
+  char ringOperator[] = {0xe2, 0x88, 0x98};
+  EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
+    .len = sizeof(ringOperator),
+    .buf = ringOperator 
+  }, 0), 0x2218);
+ 
+  // this has an extra byte 
+  char badRingOperator[] = {0xe2, 0x88, 0x98, 0x1};
+  EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
+    .len = sizeof(badRingOperator),
+    .buf = badRingOperator 
+  }, 1), 1);
+}
+
+UTEST(bstr, bstrUtf8CodePointIter) {
+  // Ḽơᶉëᶆ
+  char buffer[] = {0xE1, 0xB8, 0xBC, 0xC6, 0xA1, 0xE1, 0xB6, 0x89,0xC3, 0xAB,0xE1, 0xB6,0x86 };
+  struct bstr_utf8_iterable_s iterable = {
+    .cursor = 0,
+    .buffer = {
+      .buf = buffer,
+      .len = sizeof(buffer)
+    }
+  };
+  struct bstr_const_slice_s s = {0};
+  s = bstrUtf8CodePointIter(&iterable);
+  EXPECT_EQ(bstr_is_empty(s), false);
+  EXPECT_EQ(bstrSliceToUtf8CodePoint(s, 0), 0x00001E3C); // 0xE1, 0xB8, 0xBC
+  s = bstrUtf8CodePointIter(&iterable);
+  EXPECT_EQ(bstr_is_empty(s), false);
+  EXPECT_EQ(bstrSliceToUtf8CodePoint(s, 0x0),0x1a1); // 0xBC, 0xC6
+  s = bstrUtf8CodePointIter(&iterable);
+  EXPECT_EQ(bstr_is_empty(s), false);
+  EXPECT_EQ(bstrSliceToUtf8CodePoint(s, 0x0),0x1D89); // 0xE1, 0xB6, 0x89
+  s = bstrUtf8CodePointIter(&iterable);
+  EXPECT_EQ(bstr_is_empty(s), false);
+  EXPECT_EQ(bstrSliceToUtf8CodePoint(s, 0x0),0x00EB); // 0xC3 0xAB
+  s = bstrUtf8CodePointIter(&iterable);
+  EXPECT_EQ(bstr_is_empty(s), false);
+  EXPECT_EQ(bstrSliceToUtf8CodePoint(s, 0x0),0x1D86); //0xE1 0xB6 0x86
+  s = bstrUtf8CodePointIter(&iterable);
+  EXPECT_EQ(bstr_is_empty(s), true);
+  
+}
+
+
 UTEST_MAIN()

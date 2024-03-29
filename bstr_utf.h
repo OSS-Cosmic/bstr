@@ -23,10 +23,15 @@ struct bstr_utf8_iterable_s {
  * chunk is returned
  **/
 struct bstr_const_slice_s bstrUtf8CodePointIter(struct bstr_utf8_iterable_s* iter);
+
+
 //struct bstr_const_slice_s utf8CodePointIterRev(struct bstr_utf8_iterable_s* iter);
 /**
 * converts a slice to utf8 codepoint.  
 **/
 uint32_t bstrSliceToUtf8CodePoint(struct bstr_const_slice_s slice, uint32_t errorcode);
+// https://datatracker.ietf.org/doc/html/rfc2781
+uint32_t bstrSliceToUtf16CodePoint(struct bstr_const_slice_s slice, uint32_t errorcode);
+
 
 #endif

@@ -1,4 +1,4 @@
-#include "bstr_utf8.h"
+#include "bstr_utf.h"
 #include "bstr.h"
 
 
@@ -60,5 +60,21 @@ uint32_t bstrSliceToUtf8CodePoint(struct bstr_const_slice_s slice, uint32_t erro
   }
   return errorcode;
 }
+
+uint32_t bstrSliceToUtf16CodePoint(struct bstr_const_slice_s slice, uint32_t errorcode) {
+  const uint16_t w1 =  ((unsigned)slice.buf[1] << 8) | (unsigned) slice.buf[0];
+  if(w1 < 0xD800 || w1 > 0xDFFF) {
+    return w1;
+  }
+  if (w1 < 0xD800 || w1 > 0xDBFF)
+    return errorcode;
+  if (4 != slice.len)
+    return errorcode;
+  const uint16_t  w2 =  ((unsigned)slice.buf[3] << 8) | (unsigned)slice.buf[2];
+  if (w2 < 0xDC00 || w2 > 0xDFFF)
+    return errorcode;
+  return (((w1 & 0x3FF) << 10) | (w2 & 0x3FF)) + 0x10000;
+}
+
 
 

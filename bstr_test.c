@@ -1,7 +1,7 @@
 #include "utest.h"
 
 #include "bstr.h"
-#include "bstr_utf8.h"
+#include "bstr_utf.h"
 
 UTEST(bstr, bstrCaselessCompare ) {
   EXPECT_EQ(bstrCaselessCompare(bstr_const_ref("test"), bstr_const_ref("TEST")), 0);
@@ -280,6 +280,15 @@ UTEST(bstr, bstrTrim) {
   EXPECT_EQ(bstrEqual(bstrtrim(bstr_const_ref("\t")), bstr_const_ref("")), true);
 }
 
+UTEST(bstr, bstrSliceToUtf16CodePoint) {
+
+  char leftPointingMagnify[] = {0x3D,0xD8,0x0D,0xDD}; 
+  EXPECT_EQ(bstrSliceToUtf16CodePoint((struct bstr_const_slice_s) {
+    .len = sizeof(leftPointingMagnify),
+    .buf = leftPointingMagnify
+  }, 0), 0x1F50D);
+}
+
 UTEST(bstr, bstrSliceToUtf8CodePoint) {
   char smilyCat[] = {0xF0, 0x9F, 0x98, 0xBC};
   EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
@@ -335,7 +344,6 @@ UTEST(bstr, bstrUtf8CodePointIter) {
   EXPECT_EQ(bstrSliceToUtf8CodePoint(s, 0x0),0x1D86); //0xE1 0xB6 0x86
   s = bstrUtf8CodePointIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), true);
-  
 }
 
 

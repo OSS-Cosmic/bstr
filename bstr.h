@@ -49,9 +49,6 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#define BSTR_LLSTR_SIZE 21
-#define BSTR_LSTR_SIZE 16 
-
 struct bstr_s {
   size_t alloc;
   size_t len;
@@ -68,6 +65,37 @@ struct bstr_slice_s {
   size_t len;
 }; 
 
+#ifdef __cplusplus
+static inline struct bstr_const_slice_s bstr_const_ref(const char* c) { return (struct bstr_const_slice_s){c, strlen(c)}; }
+static inline struct bstr_const_slice_s bstr_const_ref(struct bstr_s str) { return (struct bstr_const_slice_s){str.buf, str.len};}
+static inline struct bstr_const_slice_s bstr_const_ref(struct bstr_slice_s slice){return (struct bstr_const_slice_s){slice.buf, slice.len};}
+
+static inline struct bstr_slice_s bstr_ref(char *c) { return (struct bstr_slice_s){c, strlen(c)}; }
+static inline struct bstr_slice_s bstr_ref(struct bstr_s str) { return (struct bstr_slice_s){str.buf, str.len}; }
+
+static inline struct bstr_slice_s bstr_sub(struct bstr_slice_s slice, size_t a, size_t b) {
+  assert((b - a) <= slice.len);
+  return (struct bstr_slice_s){slice.buf + a, b - a};
+}
+static inline struct bstr_const_slice_s bstr_sub(struct bstr_const_slice_s slice, size_t a, size_t b) {
+  assert((b - a) <= slice.len);
+  return (struct bstr_const_slice_s){slice.buf + a, b - a};
+}
+#endif
+
+
+#define BSTR_LLSTR_SIZE 21
+#define BSTR_LSTR_SIZE 16 
+
+#define bstr_avail_len(b) ((b).alloc - (b).len)
+#define bstr_avail_slice(b)((struct bstr_slice_s){(b).buf + (b).len, bstr_avail_len(b)})
+#define bstr_is_empty(b) ((b).buf == NULL || (b).len == 0)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef __cplusplus
 static inline struct bstr_const_slice_s cstr_to_const_slice(const char* c) { return (struct bstr_const_slice_s){c, strlen(c)}; }
 static inline struct bstr_const_slice_s bstr_to_const_slice(struct bstr_s str) { return (struct bstr_const_slice_s){str.buf, str.len};}
 static inline struct bstr_const_slice_s bstr_slice_to_const_slice(struct bstr_slice_s slice){return (struct bstr_const_slice_s){slice.buf, slice.len};}
@@ -84,9 +112,6 @@ static inline struct bstr_const_slice_s bstr_sub_const_slice(struct bstr_const_s
   return (struct bstr_const_slice_s){slice.buf + a, b - a};
 }
 
-#define bstr_avail_len(b) ((b).alloc - (b).len)
-#define bstr_avail_slice(b)((struct bstr_slice_s){(b).buf + (b).len, bstr_avail_len(b)})
-#define bstr_is_empty(b) ((b).buf == NULL || (b).len == 0)
 #define bstr_const_ref(T) \
     _Generic((T), \
       struct bstr_s: bstr_to_const_slice, \
@@ -102,6 +127,10 @@ static inline struct bstr_const_slice_s bstr_sub_const_slice(struct bstr_const_s
     _Generic((T), \
       struct bstr_const_slice_s: bstr_sub_const_slice, \
       struct bstr_slice_s: bstr_sub_slice)(T, a, b)
+
+#endif
+
+
 /**
  * Creates a string from a slice 
  **/
@@ -186,7 +215,7 @@ struct bstr_split_iterable_s {
  *     .cursor = 0
  * };
  * for(struct bstr_slice_s it = bstrSplitIterate(&iterable); 
- *  bstrSliceValid(it); 
+ *  !bstr_is_empty(it); 
  *  it = bstrSplitIterate(&iterable)) {
  *   printf("Next substring: %.*s\n", slice.len, slice.buf); 
  * }
@@ -208,7 +237,7 @@ struct bstr_const_slice_s bstrSplitIter(struct bstr_split_iterable_s*);
  *     .cursor = 0
  * };
  * for(struct bstr_slice_s it = bstrSplitIterate(&iterable); 
- *  bstrSliceValid(it); 
+ *  !bstr_is_empty(it); 
  *  it = bstrSplitIterate(&iterable)) {
  *   printf("Next substring: %.*s\n", slice.len, slice.buf); 
  * }
@@ -283,7 +312,7 @@ bool bstrcatjoin(struct bstr_s*, struct bstr_const_slice_s* slices, size_t numSl
 /*
  * join an array of strings and cat them to bstr 
  **/
-bool bstrCatJoinCStr(struct bstr_s*, char** argv, size_t argc, struct bstr_const_slice_s sep);
+bool bstrCatJoinCStr(struct bstr_s*, const char** argv, size_t argc, struct bstr_const_slice_s sep);
 
 /**
  * this should fit safetly within BSTR_LLSTR_SIZE. 
@@ -344,5 +373,9 @@ int bstrLastIndexOfCaselessOffset(const struct bstr_const_slice_s haystack, size
 
 int bstrIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s characters);
 int bstrLastIndexOfAny(const struct bstr_const_slice_s haystack, const struct bstr_const_slice_s characters);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

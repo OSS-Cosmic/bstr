@@ -65,8 +65,8 @@ UTEST(bstr, bstrDuplicate) {
 UTEST(bstr, bstrIterateRev) {
   struct bstr_const_slice_s buf = bstr_const_ref("one two three four five");
   struct bstr_split_iterable_s iterable = {
-      .delim = bstr_const_ref(" "),
       .buffer = buf,
+      .delim = bstr_const_ref(" "),
       .cursor = buf.len 
   };
   struct bstr_const_slice_s s = {0};
@@ -104,8 +104,8 @@ UTEST(bstr, bstrReadu32) {
 
 UTEST(bstr, bstrIterate) {
   struct bstr_split_iterable_s iterable = {
-      .delim = bstr_const_ref(" "),
       .buffer = bstr_const_ref("one two three four five"),
+      .delim = bstr_const_ref(" "),
       .cursor = 0
   };
   struct bstr_const_slice_s s = {0};
@@ -163,7 +163,7 @@ UTEST(bstr, bstrCatJoin) {
 
 UTEST(bstr, bstrCatJoinCstr) {
   struct bstr_s buf ={0};
-  char* slices[] = {
+  const char* slices[] = {
     "one",
     "two",
     "three",
@@ -173,7 +173,6 @@ UTEST(bstr, bstrCatJoinCstr) {
   EXPECT_EQ(bstrEqual(bstr_const_ref(buf), bstr_const_ref("one two three four")), true);
   bstrfree(&buf);
 }
-
 
 UTEST(bstr, appendSlice) {
   struct bstr_s buf = {0};
@@ -282,14 +281,14 @@ UTEST(bstr, bstrTrim) {
 }
 
 UTEST(bstr, bstrSliceToUtf16CodePoint) {
-  char leftPointingMagnify[] = {0x3D,0xD8,0x0D,0xDD};
+  unsigned char leftPointingMagnify[] = {0x3D,0xD8,0x0D,0xDD};
 
   struct bstr_utf_result_s res;
   {
     struct bstr_utf_iterable_s iter = {
       .buffer = (struct bstr_const_slice_s) {
+        .buf = (const char*)leftPointingMagnify,
         .len = 2,
-        .buf = leftPointingMagnify
       },
       .cursor = 0
     };
@@ -300,8 +299,8 @@ UTEST(bstr, bstrSliceToUtf16CodePoint) {
   {
     struct bstr_utf_iterable_s iter = {
       .buffer = (struct bstr_const_slice_s) {
+        .buf = (const char*)leftPointingMagnify,
         .len = sizeof(leftPointingMagnify),
-        .buf = leftPointingMagnify
       },
       .cursor = 0
     };
@@ -312,8 +311,8 @@ UTEST(bstr, bstrSliceToUtf16CodePoint) {
   {
     struct bstr_utf_iterable_s iter = (struct bstr_utf_iterable_s){
       .buffer = (struct bstr_const_slice_s) {
+        .buf = NULL, 
         .len = 0,
-        .buf = NULL  
       },
       .cursor = 0
     };
@@ -324,7 +323,10 @@ UTEST(bstr, bstrSliceToUtf16CodePoint) {
   {
     char badInput[] = {0};
     struct bstr_utf_iterable_s iter = (struct bstr_utf_iterable_s){
-        .buffer = (struct bstr_const_slice_s){.len = 0, .buf = badInput},
+        .buffer = (struct bstr_const_slice_s){
+          .buf = badInput,
+          .len = 0, 
+        },
         .cursor = 0};
     res = bstrUtf16NextCodePoint(&iter);
     EXPECT_EQ((bool)res.invalid, true);
@@ -333,48 +335,63 @@ UTEST(bstr, bstrSliceToUtf16CodePoint) {
 
 }
 
-UTEST(bstr, bstrSliceToUtf8CodePoint) {
-  char smilyCat[] = {0xF0, 0x9F, 0x98, 0xBC};
-  struct bstr_utf_iterable_s iter = {
-    .buffer = (struct bstr_const_slice_s) {
-      .len = sizeof(smilyCat),
-      .buf = smilyCat
-    },
-    .cursor = 0
-  };
-
-  struct bstr_utf_result_s res = bstrUtf8NextCodePoint(&iter);
-  EXPECT_EQ(res.codePoint, 0x0001f63c);
-  
-  //char charU[] = {'U'};
-  //EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
-  //  .len = sizeof(charU),
-  //  .buf = charU 
-  //}, 0), 'U');
-
-  //char ringOperator[] = {0xe2, 0x88, 0x98};
-  //EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
-  //  .len = sizeof(ringOperator),
-  //  .buf = ringOperator 
-  //}, 0), 0x2218);
- 
-  //// this has an extra byte 
-  //char badRingOperator[] = {0xe2, 0x88, 0x98, 0x1};
-  //EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
-  //  .len = sizeof(badRingOperator),
-  //  .buf = badRingOperator 
-  //}, 1), 1);
-}
+//UTEST(bstr, bstrSliceToUtf8CodePoint) {
+//  char smilyCat[] = {0xF0, 0x9F, 0x98, 0xBC};
+//  struct bstr_utf_iterable_s iter = {
+//    .buffer = (struct bstr_const_slice_s) {
+//      .len = sizeof(smilyCat),
+//      .buf = smilyCat
+//    },
+//    .cursor = 0
+//  };
+//
+//  struct bstr_utf_result_s res = bstrUtf8NextCodePoint(&iter);
+//  EXPECT_EQ(res.codePoint, 0x0001f63c);
+//  
+//  char charU[] = {'U'};
+//  EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
+//    .len = sizeof(charU),
+//    .buf = charU 
+//  }, 0), 'U');
+//
+//  char ringOperator[] = {0xe2, 0x88, 0x98};
+//  EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
+//    .len = sizeof(ringOperator),
+//    .buf = ringOperator 
+//  }, 0), 0x2218);
+// 
+//  // this has an extra byte 
+//  char badRingOperator[] = {0xe2, 0x88, 0x98, 0x1};
+//  EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
+//    .len = sizeof(badRingOperator),
+//    .buf = badRingOperator 
+//  }, 1), 1);
+//}
 
 UTEST(bstr, bstrUtf8CodePointIter) {
+  {
+    unsigned char smilyCat[] = {0xF0, 0x9F, 0x98, 0xBC};
+    struct bstr_utf_iterable_s iter = {
+      .buffer = (struct bstr_const_slice_s) {
+        .buf = (const char*)smilyCat,
+        .len = sizeof(smilyCat),
+      },
+      .cursor = 0
+    };
+    struct bstr_utf_result_s res = bstrUtf8NextCodePoint(&iter);
+    EXPECT_EQ(res.codePoint, 0x0001f63c);
+    EXPECT_EQ((bool)res.finished, true);
+    EXPECT_EQ((bool)res.invalid, false);
+  }
+{
   // Ḽơᶉëᶆ
-  char buffer[] = {0xE1, 0xB8, 0xBC, 0xC6, 0xA1, 0xE1, 0xB6, 0x89,0xC3, 0xAB,0xE1, 0xB6,0x86 };
+  unsigned char buffer[] = {0xE1, 0xB8, 0xBC, 0xC6, 0xA1, 0xE1, 0xB6, 0x89,0xC3, 0xAB,0xE1, 0xB6,0x86 };
   struct bstr_utf_iterable_s iterable = {
-    .cursor = 0,
     .buffer = {
-      .buf = buffer,
+      .buf = (const char*)buffer,
       .len = sizeof(buffer)
-    }
+    },
+    .cursor = 0,
   };
   struct bstr_utf_result_s s = {0};
   s = bstrUtf8NextCodePoint(&iterable);
@@ -400,6 +417,7 @@ UTEST(bstr, bstrUtf8CodePointIter) {
   s = bstrUtf8NextCodePoint(&iterable);
   EXPECT_EQ((bool)s.finished, true);
   EXPECT_EQ((bool)s.invalid, true);
+  }
 }
 
 

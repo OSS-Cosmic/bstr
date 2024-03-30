@@ -791,7 +791,7 @@ bool bstrcatjoin(struct bstr_s *str, struct bstr_const_slice_s *slices,
 }
 
 
-bool bstrCatJoinCStr(struct bstr_s *str, char **argv, size_t argc, struct bstr_const_slice_s sep) {
+bool bstrCatJoinCStr(struct bstr_s *str, const char **argv, size_t argc, struct bstr_const_slice_s sep) {
   for(size_t i = 0; i < argc; i++) {
     const size_t argLen = strlen(argv[i]);
     if(!bstrMakeRoomFor(str, argLen + sep.len)) 
@@ -818,5 +818,7 @@ int bstrLastIndexOfAny(const struct bstr_const_slice_s haystack, const struct bs
   }
   return false;
 }
+
+
 
 

@@ -9,7 +9,6 @@
 
 #include "bstr.h"
 
-
 #define isLegalUnicodeCodePoint(v)  ((((v) < 0xD800L) || ((v) > 0xDFFFL)) && (((unsigned long)(v)) <= 0x0010FFFFL) && (((v)|0x1F0001) != 0x1FFFFFL))
 
 struct bstr_utf_iterable_s {
@@ -24,10 +23,16 @@ struct bstr_utf_result_s {
   uint8_t finished: 1; // marks the final character in the sequence
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct bstr_utf_result_s bstrUtf8NextCodePoint(struct bstr_utf_iterable_s* iter); 
 
 // https://datatracker.ietf.org/doc/html/rfc2781
 struct bstr_utf_result_s bstrUtf16NextCodePoint(struct bstr_utf_iterable_s* iter);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

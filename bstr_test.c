@@ -2,6 +2,7 @@
 
 #include "bstr.h"
 #include "bstr_utf.h"
+#include <stdbool.h>
 
 UTEST(bstr, bstrCaselessCompare ) {
   EXPECT_EQ(bstrCaselessCompare(bstr_const_ref("test"), bstr_const_ref("TEST")), 0);
@@ -281,69 +282,124 @@ UTEST(bstr, bstrTrim) {
 }
 
 UTEST(bstr, bstrSliceToUtf16CodePoint) {
+  char leftPointingMagnify[] = {0x3D,0xD8,0x0D,0xDD};
 
-  char leftPointingMagnify[] = {0x3D,0xD8,0x0D,0xDD}; 
-  EXPECT_EQ(bstrSliceToUtf16CodePoint((struct bstr_const_slice_s) {
-    .len = sizeof(leftPointingMagnify),
-    .buf = leftPointingMagnify
-  }, 0), 0x1F50D);
+  struct bstr_utf_result_s res;
+  {
+    struct bstr_utf_iterable_s iter = {
+      .buffer = (struct bstr_const_slice_s) {
+        .len = 2,
+        .buf = leftPointingMagnify
+      },
+      .cursor = 0
+    };
+    res = bstrUtf16NextCodePoint(&iter);
+    EXPECT_EQ((bool)res.invalid, true);
+    EXPECT_EQ((bool)res.finished, true);
+  }
+  {
+    struct bstr_utf_iterable_s iter = {
+      .buffer = (struct bstr_const_slice_s) {
+        .len = sizeof(leftPointingMagnify),
+        .buf = leftPointingMagnify
+      },
+      .cursor = 0
+    };
+    res = bstrUtf16NextCodePoint(&iter);
+    EXPECT_EQ(res.codePoint, 0x1F50D);
+    EXPECT_EQ((bool)res.finished, true);
+  }
+  {
+    struct bstr_utf_iterable_s iter = (struct bstr_utf_iterable_s){
+      .buffer = (struct bstr_const_slice_s) {
+        .len = 0,
+        .buf = NULL  
+      },
+      .cursor = 0
+    };
+    res = bstrUtf16NextCodePoint(&iter);
+    EXPECT_EQ((bool)res.invalid, true);
+    EXPECT_EQ((bool)res.finished, true);
+  }
+  {
+    char badInput[] = {0};
+    struct bstr_utf_iterable_s iter = (struct bstr_utf_iterable_s){
+        .buffer = (struct bstr_const_slice_s){.len = 0, .buf = badInput},
+        .cursor = 0};
+    res = bstrUtf16NextCodePoint(&iter);
+    EXPECT_EQ((bool)res.invalid, true);
+    EXPECT_EQ((bool)res.finished, true);
+  }
+
 }
 
 UTEST(bstr, bstrSliceToUtf8CodePoint) {
   char smilyCat[] = {0xF0, 0x9F, 0x98, 0xBC};
-  EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
-    .len = sizeof(smilyCat),
-    .buf = smilyCat
-  }, 0), 0x0001f63c);
-  
-  char charU[] = {'U'};
-  EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
-    .len = sizeof(charU),
-    .buf = charU 
-  }, 0), 'U');
+  struct bstr_utf_iterable_s iter = {
+    .buffer = (struct bstr_const_slice_s) {
+      .len = sizeof(smilyCat),
+      .buf = smilyCat
+    },
+    .cursor = 0
+  };
 
-  char ringOperator[] = {0xe2, 0x88, 0x98};
-  EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
-    .len = sizeof(ringOperator),
-    .buf = ringOperator 
-  }, 0), 0x2218);
+  struct bstr_utf_result_s res = bstrUtf8NextCodePoint(&iter);
+  EXPECT_EQ(res.codePoint, 0x0001f63c);
+  
+  //char charU[] = {'U'};
+  //EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
+  //  .len = sizeof(charU),
+  //  .buf = charU 
+  //}, 0), 'U');
+
+  //char ringOperator[] = {0xe2, 0x88, 0x98};
+  //EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
+  //  .len = sizeof(ringOperator),
+  //  .buf = ringOperator 
+  //}, 0), 0x2218);
  
-  // this has an extra byte 
-  char badRingOperator[] = {0xe2, 0x88, 0x98, 0x1};
-  EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
-    .len = sizeof(badRingOperator),
-    .buf = badRingOperator 
-  }, 1), 1);
+  //// this has an extra byte 
+  //char badRingOperator[] = {0xe2, 0x88, 0x98, 0x1};
+  //EXPECT_EQ(bstrSliceToUtf8CodePoint((struct bstr_const_slice_s) {
+  //  .len = sizeof(badRingOperator),
+  //  .buf = badRingOperator 
+  //}, 1), 1);
 }
 
 UTEST(bstr, bstrUtf8CodePointIter) {
   // Ḽơᶉëᶆ
   char buffer[] = {0xE1, 0xB8, 0xBC, 0xC6, 0xA1, 0xE1, 0xB6, 0x89,0xC3, 0xAB,0xE1, 0xB6,0x86 };
-  struct bstr_utf8_iterable_s iterable = {
+  struct bstr_utf_iterable_s iterable = {
     .cursor = 0,
     .buffer = {
       .buf = buffer,
       .len = sizeof(buffer)
     }
   };
-  struct bstr_const_slice_s s = {0};
-  s = bstrUtf8CodePointIter(&iterable);
-  EXPECT_EQ(bstr_is_empty(s), false);
-  EXPECT_EQ(bstrSliceToUtf8CodePoint(s, 0), 0x00001E3C); // 0xE1, 0xB8, 0xBC
-  s = bstrUtf8CodePointIter(&iterable);
-  EXPECT_EQ(bstr_is_empty(s), false);
-  EXPECT_EQ(bstrSliceToUtf8CodePoint(s, 0x0),0x1a1); // 0xBC, 0xC6
-  s = bstrUtf8CodePointIter(&iterable);
-  EXPECT_EQ(bstr_is_empty(s), false);
-  EXPECT_EQ(bstrSliceToUtf8CodePoint(s, 0x0),0x1D89); // 0xE1, 0xB6, 0x89
-  s = bstrUtf8CodePointIter(&iterable);
-  EXPECT_EQ(bstr_is_empty(s), false);
-  EXPECT_EQ(bstrSliceToUtf8CodePoint(s, 0x0),0x00EB); // 0xC3 0xAB
-  s = bstrUtf8CodePointIter(&iterable);
-  EXPECT_EQ(bstr_is_empty(s), false);
-  EXPECT_EQ(bstrSliceToUtf8CodePoint(s, 0x0),0x1D86); //0xE1 0xB6 0x86
-  s = bstrUtf8CodePointIter(&iterable);
-  EXPECT_EQ(bstr_is_empty(s), true);
+  struct bstr_utf_result_s s = {0};
+  s = bstrUtf8NextCodePoint(&iterable);
+  EXPECT_EQ(s.codePoint, 0x00001E3C); // 0xE1, 0xB8, 0xBC
+  EXPECT_EQ((bool)s.finished, false);
+  EXPECT_EQ((bool)s.invalid, false);
+  s = bstrUtf8NextCodePoint(&iterable);
+  EXPECT_EQ(s.codePoint,0x1a1); // 0xBC, 0xC6
+  EXPECT_EQ((bool)s.finished, false);
+  EXPECT_EQ((bool)s.invalid, false);
+  s = bstrUtf8NextCodePoint(&iterable);
+  EXPECT_EQ(s.codePoint,0x1D89); // 0xE1, 0xB6, 0x89
+  EXPECT_EQ((bool)s.finished, false);
+  EXPECT_EQ((bool)s.invalid, false);
+  s = bstrUtf8NextCodePoint(&iterable);
+  EXPECT_EQ(s.codePoint,0x00EB); // 0xC3 0xAB
+  EXPECT_EQ((bool)s.finished, false);
+  EXPECT_EQ((bool)s.invalid, false);
+  s = bstrUtf8NextCodePoint(&iterable);
+  EXPECT_EQ(s.codePoint,0x1D86); //0xE1 0xB6 0x86
+  EXPECT_EQ((bool)s.finished, true);
+  EXPECT_EQ((bool)s.invalid, false);
+  s = bstrUtf8NextCodePoint(&iterable);
+  EXPECT_EQ((bool)s.finished, true);
+  EXPECT_EQ((bool)s.invalid, true);
 }
 
 

@@ -1,21 +1,33 @@
 #include "bstr_utf.h"
 #include "bstr.h"
+#include <stdbool.h>
 
 
-struct bstr_const_slice_s bstrUtf8CodePointIter(struct bstr_utf8_iterable_s* iter){
-  unsigned char c0 = iter->buffer.buf[iter->cursor];
+struct bstr_const_slice_s bstrUtf8CodePointIter(struct bstr_utf_iterable_s* iter){
+  assert(iter);
   const size_t startCursor = iter->cursor;
+  if(startCursor >= iter->buffer.len)
+    return (struct bstr_const_slice_s) {0};
+  unsigned char c0 = iter->buffer.buf[iter->cursor];
   if (c0 < 0xC0 || c0 > 0xFD) {
-    iter->cursor = (iter->cursor + 1 > iter->buffer.len) ? iter->buffer.len : iter->cursor + 1;
+    if(iter->cursor + 1 > iter->buffer.len)
+      return (struct bstr_const_slice_s) {0};
+    iter->cursor += 1;
     return bstr_sub_const_slice(iter->buffer, startCursor, iter->cursor);
   } else if (c0 < 0xE0) {
-    iter->cursor = (iter->cursor + 2 > iter->buffer.len) ? iter->buffer.len : iter->cursor + 2;
+    if(iter->cursor + 2 > iter->buffer.len)
+      return (struct bstr_const_slice_s) {0};
+    iter->cursor += 2;
     return bstr_sub_const_slice(iter->buffer, startCursor, iter->cursor);
   } else if (c0 < 0xF0) {
-    iter->cursor = (iter->cursor + 3 > iter->buffer.len) ? iter->buffer.len : iter->cursor + 3;
+    if(iter->cursor + 3 > iter->buffer.len)
+      return (struct bstr_const_slice_s) {0};
+    iter->cursor += 3;
     return bstr_sub_const_slice(iter->buffer, startCursor, iter->cursor);
   } else if (c0 < 0xF8) {
-    iter->cursor = (iter->cursor + 4 > iter->buffer.len) ? iter->buffer.len : iter->cursor + 4;
+    if(iter->cursor + 4 > iter->buffer.len)
+      return (struct bstr_const_slice_s) {0};
+    iter->cursor += 4;
     return bstr_sub_const_slice(iter->buffer, startCursor, iter->cursor);
   }
   iter->cursor++;
@@ -26,55 +38,122 @@ struct bstr_const_slice_s bstrUtf8CodePointIter(struct bstr_utf8_iterable_s* ite
   return bstr_sub_const_slice(iter->buffer, startCursor, iter->cursor);
 }
 
-uint32_t bstrSliceToUtf8CodePoint(struct bstr_const_slice_s slice, uint32_t errorcode) {
-  const unsigned char c0 = slice.buf[0];
+struct bstr_const_slice_s bstrUtf16CodePointIter(struct bstr_utf_iterable_s* iter) {
+  assert(iter);
+  const size_t startCursor = iter->cursor;
+  if(iter->cursor + 2 > iter->buffer.len)
+    return (struct bstr_const_slice_s) {0};
+  const uint16_t w1 = ((unsigned)iter->buffer.buf[1] << 8) | (unsigned)iter->buffer.buf[0];
+  if (w1 < 0xD800 || w1 > 0xDFFF)
+    return bstr_sub_const_slice(iter->buffer, startCursor, iter->cursor + 2);
+  if(iter->cursor + 4 > iter->buffer.len)
+    return (struct bstr_const_slice_s) {0};
+  return bstr_sub_const_slice(iter->buffer, startCursor, iter->cursor + 4);
+}
+
+struct bstr_utf_result_s bstrUtf8NextCodePoint(struct bstr_utf_iterable_s* iter) {
+  assert(iter);
+  if(bstr_is_empty(iter->buffer)) 
+    return (struct bstr_utf_result_s) {
+      .codePoint = 0,
+      .finished = true,
+      .invalid = true
+    };
+  const size_t remainingLen = iter->buffer.len - iter->cursor;
+  
+  if(remainingLen < 1) goto invalid_token;
+  const unsigned char c0 = iter->buffer.buf[iter->cursor];
   if (c0 < 0xC0 || c0 > 0xFD) {
-    if(slice.len != 1)
-      return errorcode;
-		if (c0 >= 0x80) return errorcode;
-		return c0;
+  	iter->cursor += 1;
+  	if (c0 >= 0x80) goto invalid_token_overflow; 
+  	return (struct bstr_utf_result_s) {
+  	  .codePoint = c0,
+  	  .finished = remainingLen == 1,
+  	  .invalid = false
+  	};
   } else if (c0 < 0xE0) {
-    if(slice.len != 2)
-      return errorcode;
-    const unsigned char c1 = (unsigned char) ((unsigned) slice.buf[1] - 0x080); 
-		const uint32_t codePoint = ((c0 << 6u) - (0x0C0 << 6u)) + c1;
-		if (c1 >= 0x40 || codePoint < 0x80) return errorcode;
-		return codePoint;
+    if(remainingLen < 2) goto invalid_token_overflow;
+    const unsigned char c1 = (unsigned char) ((unsigned) iter->buffer.buf[iter->cursor + 1] - 0x080); 
+  	iter->cursor += 2;
+  	const uint32_t codePoint = ((c0 << 6u) - (0x0C0 << 6u)) + c1;
+  	if (c1 >= 0x40 || codePoint < 0x80) goto invalid_token;
+    return (struct bstr_utf_result_s) {
+		  .codePoint = codePoint,
+		  .finished = remainingLen == 2,
+		  .invalid = false 
+		};
   } else if (c0 < 0xF0) {
-    if(slice.len != 3)
-      return errorcode;
-    const unsigned char c1 = (unsigned char) ((unsigned) slice.buf[1] - 0x080); 
-    const unsigned char c2 = (unsigned char) ((unsigned) slice.buf[2] - 0x080); 
-		const uint32_t codePoint = ((c0 << 12) - (0x0E0 << 12u)) + (c1 << 6u) + c2;
-		if ((c1|c2) >= 0x40 || codePoint < 0x80 || !isLegalUnicodeCodePoint (codePoint)) return errorcode;
-		return codePoint;
+    if(remainingLen < 3) goto invalid_token_overflow;
+    const unsigned char c1 = (unsigned char) ((unsigned) iter->buffer.buf[iter->cursor + 1] - 0x080); 
+    const unsigned char c2 = (unsigned char) ((unsigned) iter->buffer.buf[iter->cursor + 2] - 0x080); 
+  	const uint32_t codePoint = ((c0 << 12) - (0x0E0 << 12u)) + (c1 << 6u) + c2;
+  	iter->cursor += 3;
+  	if ((c1|c2) >= 0x40 || codePoint < 0x80 || !isLegalUnicodeCodePoint (codePoint)) goto invalid_token;
+    return (struct bstr_utf_result_s) {
+		  .codePoint = codePoint,
+		  .finished = remainingLen == 3,
+		  .invalid = false
+		};
   } else if (c0 < 0xF8) {
-    if(slice.len != 4)
-      return errorcode;
-		const unsigned char c1 = (unsigned char) ((unsigned)  slice.buf[1] - 0x080);
-		const unsigned char c2 = (unsigned char) ((unsigned)  slice.buf[2] - 0x080);
-		const unsigned char c3 = (unsigned char) ((unsigned)  slice.buf[3] - 0x080);
+    if(remainingLen < 4) goto invalid_token_overflow;
+  	const unsigned char c1 = (unsigned char) ((unsigned)  iter->buffer.buf[iter->cursor + 1] - 0x080);
+  	const unsigned char c2 = (unsigned char) ((unsigned)  iter->buffer.buf[iter->cursor + 2] - 0x080);
+  	const unsigned char c3 = (unsigned char) ((unsigned)  iter->buffer.buf[iter->cursor + 3] - 0x080);
+  	iter->cursor += 4;
     const uint32_t codePoint = ((c0 << 18) - (0x0F0 << 18u)) + (c1 << 12u) + (c2 << 6u) + c3; 
-		if ((c1|c2|c3) >= 0x40 || codePoint < 0x10000 || !isLegalUnicodeCodePoint (codePoint)) return errorcode;
-    return codePoint;
+  	if ((c1|c2|c3) >= 0x40 || codePoint < 0x10000 || !isLegalUnicodeCodePoint (codePoint)) goto invalid_token;
+    return (struct bstr_utf_result_s) {
+		  .codePoint = codePoint,
+		  .finished = remainingLen == 4,
+		  .invalid = false
+		};
   }
-  return errorcode;
+invalid_token_overflow:
+  iter->cursor = iter->buffer.len; 
+invalid_token:
+    return (struct bstr_utf_result_s) {
+		  .codePoint = 0,
+		  .finished = remainingLen == 0,
+		  .invalid = true
+		};
+
 }
+struct bstr_utf_result_s bstrUtf16NextCodePoint(struct bstr_utf_iterable_s* iter) {
+  assert(iter);
+  if(bstr_is_empty(iter->buffer)) 
+    return (struct bstr_utf_result_s) {
+      .codePoint = 0,
+      .finished = true,
+      .invalid = true
+    };
+  const size_t remainingLen = iter->buffer.len - iter->cursor;
+  if(remainingLen < 2) goto invalid_token_overflow;
+  const uint16_t w1 = ((unsigned)iter->buffer.buf[iter->cursor + 1] << 8) | (unsigned)iter->buffer.buf[iter->cursor];
+  iter->cursor += 2;
+  if (w1 < 0xD800 || w1 > 0xDFFF)
+    return (struct bstr_utf_result_s) {
+      .codePoint = w1,
+      .invalid = false,
+      .finished = remainingLen == 2
+    };
+  if(remainingLen < 4) goto invalid_token_overflow;
+  const uint16_t w2 = ((unsigned)iter->buffer.buf[iter->cursor + 1] << 8) | (unsigned)iter->buffer.buf[iter->cursor];
+  iter->cursor += 2;
+  if (w2 < 0xDC00 || w2 > 0xDFFF) goto invalid_token; 
+  return (struct bstr_utf_result_s) {
+		.codePoint = (((w1 & 0x3FF) << 10) | (w2 & 0x3FF)) + 0x10000,
+		.finished = remainingLen == 4,
+		.invalid = true
+	};
 
-uint32_t bstrSliceToUtf16CodePoint(struct bstr_const_slice_s slice, uint32_t errorcode) {
-  const uint16_t w1 =  ((unsigned)slice.buf[1] << 8) | (unsigned) slice.buf[0];
-  if(w1 < 0xD800 || w1 > 0xDFFF) {
-    return w1;
-  }
-  if (w1 < 0xD800 || w1 > 0xDBFF)
-    return errorcode;
-  if (4 != slice.len)
-    return errorcode;
-  const uint16_t  w2 =  ((unsigned)slice.buf[3] << 8) | (unsigned)slice.buf[2];
-  if (w2 < 0xDC00 || w2 > 0xDFFF)
-    return errorcode;
-  return (((w1 & 0x3FF) << 10) | (w2 & 0x3FF)) + 0x10000;
+
+invalid_token_overflow:
+  iter->cursor = iter->buffer.len; 
+invalid_token:
+    return (struct bstr_utf_result_s) {
+		  .codePoint = 0,
+		  .finished = iter->cursor == iter->buffer.len,
+		  .invalid = true
+		};
 }
-
-
 

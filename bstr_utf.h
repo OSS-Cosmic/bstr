@@ -12,26 +12,22 @@
 
 #define isLegalUnicodeCodePoint(v)  ((((v) < 0xD800L) || ((v) > 0xDFFFL)) && (((unsigned long)(v)) <= 0x0010FFFFL) && (((v)|0x1F0001) != 0x1FFFFFL))
 
-struct bstr_utf8_iterable_s {
+struct bstr_utf_iterable_s {
   const struct bstr_const_slice_s buffer; // the buffer to iterrate over
   size_t cursor;
 };
 
-//struct size_t utf8CodePointLen(struct bstr_const_slice_s slice);
-/**
- * iterates to the next chunk if its an invalid utf8 character then the invalid
- * chunk is returned
- **/
-struct bstr_const_slice_s bstrUtf8CodePointIter(struct bstr_utf8_iterable_s* iter);
+
+struct bstr_utf_result_s {
+  uint32_t codePoint;
+  uint8_t invalid: 1;
+  uint8_t finished: 1; // marks the final character in the sequence
+};
 
 
-//struct bstr_const_slice_s utf8CodePointIterRev(struct bstr_utf8_iterable_s* iter);
-/**
-* converts a slice to utf8 codepoint.  
-**/
-uint32_t bstrSliceToUtf8CodePoint(struct bstr_const_slice_s slice, uint32_t errorcode);
+struct bstr_utf_result_s bstrUtf8NextCodePoint(struct bstr_utf_iterable_s* iter); 
+
 // https://datatracker.ietf.org/doc/html/rfc2781
-uint32_t bstrSliceToUtf16CodePoint(struct bstr_const_slice_s slice, uint32_t errorcode);
-
+struct bstr_utf_result_s bstrUtf16NextCodePoint(struct bstr_utf_iterable_s* iter);
 
 #endif

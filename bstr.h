@@ -58,7 +58,6 @@ struct bstr_s {
   char* buf;
 };
 
-
 // a const slice
 struct bstr_const_slice_s {
   const char * buf;

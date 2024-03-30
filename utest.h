@@ -513,11 +513,7 @@ template <> struct utest_type_deducer<unsigned long long, false> {
 };
 
 template <> struct utest_type_deducer<bool, false> {
-  static void _(const bool i) { UTEST_PRINTF("false"); }
-};
-
-template <> struct utest_type_deducer<bool, true> {
-  static void _(const bool i) { UTEST_PRINTF("true"); }
+  static void _(const bool i) { UTEST_PRINTF(i ? "true" : "false"); }
 };
 
 template <typename T> struct utest_type_deducer<const T *, false> {

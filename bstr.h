@@ -210,8 +210,8 @@ struct bstr_split_iterable_s {
  * The the slice does not have a null terminator.
  *
  * struct bstr_split_iterator_s iterable = {
- *     .delim = BSTR_C_SLICE(" "),
- *     .buffer = BSTR_C_SLICE("one two three four five"),
+ *     .delim = bstr_ref(" "),
+ *     .buffer = bstr_ref("one two three four five"),
  *     .cursor = 0
  * };
  * for(struct bstr_slice_s it = bstrSplitIterate(&iterable); 
@@ -232,8 +232,8 @@ struct bstr_const_slice_s bstrSplitIter(struct bstr_split_iterable_s*);
  * The the slice does not have a null terminator.
  *
  * struct bstr_split_iterator_s iterable = {
- *     .delim = BSTR_C_SLICE(" "),
- *     .buffer = BSTR_C_SLICE("one two three four five"),
+ *     .delim = bstr_ref(" "),
+ *     .buffer = bstr_ref("one two three four five"),
  *     .cursor = 0
  * };
  * for(struct bstr_slice_s it = bstrSplitIterate(&iterable); 

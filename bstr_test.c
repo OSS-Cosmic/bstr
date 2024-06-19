@@ -92,14 +92,81 @@ UTEST(bstr, bstrIterateRev) {
 
 UTEST(bstr, bstrReadull) {
   unsigned long long res = 0;
-  EXPECT_EQ(bstrReadull(bstr_const_ref("123456"), 10, &res), 1);
+  EXPECT_EQ(bstrReadull(bstr_const_ref("123456"), &res), 1);
   EXPECT_EQ(res, 123456);
 }
 
 UTEST(bstr, bstrReadu32) {
   long long res = 0;
-  EXPECT_EQ(bstrReadll(bstr_const_ref("123456"), 10, &res), 1);
+  EXPECT_EQ(bstrReadll(bstr_const_ref("123456"), &res), 1);
   EXPECT_EQ(res, 123456);
+}
+
+UTEST(bstr, bstrIterateWhiteSpace) {
+  struct bstr_split_iterable_s iterable = {
+      .buffer = bstr_const_ref("one  two"),
+      .delim = bstr_const_ref(" "),
+      .cursor = 0
+  };
+  struct bstr_const_slice_s s = {0};
+  
+  s = bstrSplitIter(&iterable);
+  EXPECT_EQ(bstr_is_empty(s), 0);
+  EXPECT_EQ(bstr_iter_has_more(iterable), 1);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("one"), s), 1);
+
+  s = bstrSplitIter(&iterable);
+  EXPECT_EQ(bstr_is_empty(s), 1);
+  EXPECT_EQ(bstr_iter_has_more(iterable), 1);
+  
+  s = bstrSplitIter(&iterable);
+  EXPECT_EQ(bstrEqual(bstr_const_ref("two"), s), 1);
+  EXPECT_EQ(bstr_iter_has_more(iterable), 0);
+  
+  s = bstrSplitIter(&iterable);
+  EXPECT_EQ(bstr_is_empty(s), 1);
+  EXPECT_EQ(bstr_iter_has_more(iterable), 0);
+
+}
+
+UTEST(bstr, bstrIterateCount) { 
+  {
+    struct bstr_split_iterable_s iterable = {
+        .buffer = bstr_const_ref("one two three four five"),
+        .delim = bstr_const_ref(" "),
+        .cursor = 0
+    };
+    struct bstr_const_slice_s slices[] = {
+      bstr_const_ref("one"),
+      bstr_const_ref("two"),
+      bstr_const_ref("three"),
+      bstr_const_ref("four"),
+      bstr_const_ref("five"),
+    };
+    size_t i = 0;
+    for(struct bstr_const_slice_s it = bstrSplitIter(&iterable);
+        bstr_iter_has_more(iterable);  it = bstrSplitIter(&iterable)) {
+      EXPECT_EQ(bstrEqual(slices[i++], it), 1);
+    }
+  }
+  {
+    struct bstr_split_iterable_s iterable = {
+        .buffer = bstr_const_ref("one   two"),
+        .delim = bstr_const_ref(" "),
+        .cursor = 0
+    };
+    struct bstr_const_slice_s slices[] = {
+      bstr_const_ref("one"),
+      bstr_const_ref(""),
+      bstr_const_ref(""),
+      bstr_const_ref("two"),
+    };
+    size_t i = 0;
+    for(struct bstr_const_slice_s it = bstrSplitIter(&iterable);
+        bstr_iter_has_more(iterable);  it = bstrSplitIter(&iterable)) {
+      EXPECT_EQ(bstrEqual(slices[i++], it), 1);
+    }
+  }
 }
 
 UTEST(bstr, bstrIterate) {
@@ -108,6 +175,8 @@ UTEST(bstr, bstrIterate) {
       .delim = bstr_const_ref(" "),
       .cursor = 0
   };
+
+
   struct bstr_const_slice_s s = {0};
   s = bstrSplitIter(&iterable);
   EXPECT_EQ(bstr_is_empty(s), 0);

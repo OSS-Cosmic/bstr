@@ -202,6 +202,7 @@ struct bstr_split_iterable_s {
   const struct bstr_const_slice_s delim; // delim to split across 
   size_t cursor; // the current position in the buffer
 };
+#define bstr_iter_has_more(it) (it.cursor < it.buffer.len)
 
 /** 
  * splits a string using an iterator and returns a slice. a valid slice means there are 
@@ -215,7 +216,7 @@ struct bstr_split_iterable_s {
  *     .cursor = 0
  * };
  * for(struct bstr_slice_s it = bstrSplitIterate(&iterable); 
- *  !bstr_is_empty(it); 
+ *  bstr_iter_has_more(it); 
  *  it = bstrSplitIterate(&iterable)) {
  *   printf("Next substring: %.*s\n", slice.len, slice.buf); 
  * }
@@ -336,8 +337,8 @@ int bstrfmtull(struct bstr_slice_s slice, unsigned long long value);
  *   * if the string starts with 0o, the base will be 8
  *   * otherwise the base will be 10
  */
-bool bstrReadll(struct bstr_const_slice_s, int base, long long* result);
-bool bstrReadull(struct bstr_const_slice_s, int base, unsigned long long* result);
+bool bstrReadll(struct bstr_const_slice_s, long long* result);
+bool bstrReadull(struct bstr_const_slice_s, unsigned long long* result);
 
 /* Scan/search functions */
 /*  

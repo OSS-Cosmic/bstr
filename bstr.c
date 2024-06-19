@@ -380,7 +380,7 @@ static inline size_t readNumberBase(const char* buf, size_t pos, size_t len , in
 	return 0;
 }
 
-bool bstrReadull(struct bstr_const_slice_s slice, int base, unsigned long long *result) {
+bool bstrReadull(struct bstr_const_slice_s slice, unsigned long long *result) {
   assert(result);
   size_t pos = 0;
   int numBase = 0;
@@ -398,7 +398,7 @@ bool bstrReadull(struct bstr_const_slice_s slice, int base, unsigned long long *
   (*result) = val;
   return true;
 }
-bool bstrReadll(struct bstr_const_slice_s slice, int base, long long*result) {
+bool bstrReadll(struct bstr_const_slice_s slice, long long*result) {
   assert(result);
   size_t pos = 0;
   int sign = 1;

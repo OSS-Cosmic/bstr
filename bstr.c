@@ -420,6 +420,32 @@ bool bstrReadll(struct bstr_const_slice_s slice, int base, long long*result) {
   return true;
 }
 
+
+int bstrsscanf(struct bstr_const_slice_s slice, const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    const int result = bstrvsscanf(slice, fmt, ap);
+    va_end(ap);
+    return result;
+}
+
+int bstrvsscanf(struct bstr_const_slice_s slice, const char* fmt, va_list ap) {
+  va_list cpy;
+  char staticbuf[1024], *buf = staticbuf;
+  if((slice.len + 1) >= 1024) {
+      buf = s_malloc(slice.len + 1);
+  } 
+  memcpy(buf, slice.buf, slice.len);
+  buf[slice.len] = 0;
+ 
+  va_copy(cpy, ap);
+  const int res = vsscanf(buf, fmt, ap);
+  va_end(cpy);
+  if (buf != staticbuf)
+    s_free(buf);
+  return res;
+}
+
 bool bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap) {
   va_list cpy;
   char staticbuf[1024], *buf = staticbuf;

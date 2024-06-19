@@ -280,6 +280,18 @@ UTEST(bstr, bstrTrim) {
   EXPECT_EQ(bstrEqual(bstrtrim(bstr_const_ref("\t")), bstr_const_ref("")), true);
 }
 
+UTEST(bstr, bstrsscanf) {
+  {
+    uint32_t a = 0;
+    uint32_t b = 0;
+    int read = bstrsscanf(bstr_const_ref("10.132"), "%u.%u", &a, &b);
+    EXPECT_EQ(read, 2);
+    EXPECT_EQ(a, 10);
+    EXPECT_EQ(b, 132);
+
+  }
+}
+
 UTEST(bstr, bstrSliceToUtf16CodePoint) {
   unsigned char leftPointingMagnify[] = {0x3D,0xD8,0x0D,0xDD};
 

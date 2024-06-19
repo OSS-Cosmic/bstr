@@ -280,6 +280,9 @@ bool bstrUpdateLen(struct bstr_s* str);
 bool bstrcatprintf(struct bstr_s* s, const char *fmt, ...); 
 bool bstrcatvprintf(struct bstr_s* str, const char* fmt, va_list ap);
 
+int bstrsscanf(struct bstr_const_slice_s slice, const char* fmt, ...);
+int bstrvsscanf(struct bstr_const_slice_s slice, const char* fmt, va_list ap);
+
 /* This function is similar to bstrcatprintf, but much faster as it does
  * not rely on sprintf() family functions implemented by the libc that
  * are often very slow. Moreover directly handling the bstr as
